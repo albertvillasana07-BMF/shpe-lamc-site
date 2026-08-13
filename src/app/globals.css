@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #12253f;
+  --navy: #0f2340;
+  --navy-light: #1c3a5e;
+  --orange: #ff6a13;
+  --pink: #b3186a;
+  --gold: #ffd166;
+  --teal: #17b8a6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-navy: var(--navy);
+  --color-navy-light: var(--navy-light);
+  --color-orange: var(--orange);
+  --color-pink: var(--pink);
+  --color-gold: var(--gold);
+  --color-teal: var(--teal);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.gradient-header {
+  background: linear-gradient(120deg, #ff6a13 0%, #ff3d5e 48%, #b3186a 100%);
+}
+
+.stripe-bar {
+  background: repeating-linear-gradient(
+    90deg,
+    #12253f 0 24px,
+    #ffd166 24px 48px,
+    #17b8a6 48px 72px
+  );
+}
