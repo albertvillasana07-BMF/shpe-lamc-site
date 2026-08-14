@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -30,9 +31,15 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-50 bg-navy text-white shadow-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-extrabold text-lg">
-          <span className="rounded-md bg-white px-2 py-1 text-navy">SHPE</span>
-          <span>LAMC</span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <Image
+            src="/images/shpe-logo.jpeg"
+            alt="SHPE logo"
+            width={28}
+            height={28}
+            className="rounded-full object-contain"
+          />
+          <span className="font-heading text-lg leading-none">SHPE LAMC</span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
@@ -41,21 +48,12 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
-          {user ? (
-            <Link
-              href="/admin"
-              className="rounded-full bg-orange px-4 py-1.5 text-sm font-bold hover:opacity-90"
-            >
-              Admin
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-full bg-white px-4 py-1.5 text-sm font-bold text-navy hover:opacity-90"
-            >
-              Board Login
-            </Link>
-          )}
+          <Link
+            href={user ? "/admin" : "/login"}
+            className="border-l border-white/25 pl-6 text-sm font-semibold hover:text-gold"
+          >
+            {user ? "Admin" : "Board Login"}
+          </Link>
         </nav>
 
         <button
@@ -79,7 +77,7 @@ export default function Nav() {
           <Link
             href={user ? "/admin" : "/login"}
             onClick={() => setOpen(false)}
-            className="w-fit rounded-full bg-orange px-4 py-1.5 text-sm font-bold"
+            className="w-fit border-t border-white/10 pt-3 text-sm font-semibold"
           >
             {user ? "Admin" : "Board Login"}
           </Link>
