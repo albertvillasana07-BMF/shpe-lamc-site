@@ -1,42 +1,88 @@
-@import "tailwindcss";
+"use client";
 
-:root {
-  --background: #ffffff;
-  --foreground: #12253f;
-  --navy: #0f2340;
-  --navy-light: #1c3a5e;
-  --orange: #ff6a13;
-  --pink: #b3186a;
-  --gold: #ffd166;
-  --teal: #17b8a6;
-}
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-navy: var(--navy);
-  --color-navy-light: var(--navy-light);
-  --color-orange: var(--orange);
-  --color-pink: var(--pink);
-  --color-gold: var(--gold);
-  --color-teal: var(--teal);
-}
+const links = [
+  { href: "/", label: "Home" },
+  { href: "/events", label: "Events" },
+  { href: "/join", label: "Join" },
+  { href: "/sponsors", label: "Sponsors" },
+  { href: "/scholarships", label: "Scholarships" },
+  { href: "/contact", label: "Contact" },
+];
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+export default function Nav() {
+  const [user, setUser] = useState<User | null>(null);
+  const [open, setOpen] = useState(false);
 
-.gradient-header {
-  background: linear-gradient(120deg, #ff6a13 0%, #ff3d5e 48%, #b3186a 100%);
-}
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
-.stripe-bar {
-  background: repeating-linear-gradient(
-    90deg,
-    #12253f 0 24px,
-    #ffd166 24px 48px,
-    #17b8a6 48px 72px
+  return (
+    <header className="sticky top-0 z-50 bg-navy text-white shadow-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <Link href="/" className="flex items-center gap-2.5">
+          <Image
+            src="/images/shpe-logo.jpeg"
+            alt="SHPE logo"
+            width={28}
+            height={28}
+            className="rounded-full object-contain"
+          />
+          <span className="font-heading text-lg leading-none">SHPE LAMC</span>
+        </Link>
+
+        <nav className="hidden items-center gap-6 md:flex">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href} className="text-sm font-semibold hover:text-gold">
+              {l.label}
+            </Link>
+          ))}
+          <Link
+            href={user ? "/admin" : "/login"}
+            className="border-l border-white/25 pl-6 text-sm font-semibold hover:text-gold"
+          >
+            {user ? "Admin" : "Board Login"}
+          </Link>
+        </nav>
+
+        <button
+          className="md:hidden"
+          onClick={() => setOpen(!open)}
+          aria-label="Toggle menu"
+        >
+          <svg width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 7h20M3 13h20M3 19h20" />
+          </svg>
+        </button>
+      </div>
+
+      {open && (
+        <nav className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 md:hidden">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="text-sm font-semibold">
+              {l.label}
+            </Link>
+          ))}
+          <Link
+            href={user ? "/admin" : "/login"}
+            onClick={() => setOpen(false)}
+            className="w-fit border-t border-white/10 pt-3 text-sm font-semibold"
+          >
+            {user ? "Admin" : "Board Login"}
+          </Link>
+        </nav>
+      )}
+    </header>
   );
 }
