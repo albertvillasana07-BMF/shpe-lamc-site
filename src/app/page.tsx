@@ -1,67 +1,42 @@
 import Image from "next/image";
 import Link from "next/link";
+import PhotoSlideshow from "@/components/PhotoSlideshow";
 
 export default function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="gradient-header relative overflow-hidden text-white">
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              "radial-gradient(rgba(255,255,255,0.25) 2px, transparent 2px)",
-            backgroundSize: "20px 20px",
-          }}
-        />
-        <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-16 text-center">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-40 items-center justify-center rounded-xl bg-white p-2 shadow-lg">
-              <Image
-                src="/images/shpe-logo.jpeg"
-                alt="SHPE logo"
-                width={160}
-                height={64}
-                className="h-full w-full object-contain"
-              />
-            </div>
-            <div className="flex h-16 w-40 items-center justify-center rounded-xl bg-white p-2 shadow-lg">
-              <Image
-                src="/images/lamc-stem-logo.png"
-                alt="LAMC STEM logo"
-                width={160}
-                height={64}
-                className="h-full w-full object-contain"
-              />
-            </div>
-          </div>
-
-          <span className="rounded-full bg-gold px-4 py-1 text-xs font-extrabold uppercase tracking-widest text-navy">
-            LAMC Chapter
-          </span>
-          <h1 className="text-4xl font-extrabold leading-tight md:text-6xl">
-            SHPE <span className="text-gold">LAMC</span>
-          </h1>
-          <p className="max-w-2xl text-base font-semibold text-white/90 md:text-lg">
-            Engineering students at Los Angeles Mission College building community,
-            mentorship, and career opportunities — together.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link
-              href="/join"
-              className="rounded-full bg-white px-6 py-3 text-sm font-bold text-navy shadow hover:opacity-90"
-            >
-              Join SHPE LAMC
-            </Link>
-            <Link
-              href="/events"
-              className="rounded-full border-2 border-white px-6 py-3 text-sm font-bold hover:bg-white/10"
-            >
-              See Upcoming Events
-            </Link>
-          </div>
+      <section className="relative">
+        <div className="relative aspect-[2/1] w-full md:aspect-[16/7]">
+          <Image
+            src="/images/hero-banner.jpg"
+            alt="SHPE LAMC — Society of Hispanic Professional Engineers, LAMC STEM"
+            fill
+            priority
+            className="object-cover"
+            sizes="100vw"
+          />
         </div>
         <div className="stripe-bar h-2 w-full" />
+        <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-3 px-4 py-6">
+          <Link
+            href="/join"
+            className="rounded-full bg-navy px-6 py-3 text-sm font-bold text-white shadow hover:opacity-90"
+          >
+            Join SHPE LAMC
+          </Link>
+          <Link
+            href="/events"
+            className="rounded-full border-2 border-navy px-6 py-3 text-sm font-bold text-navy hover:bg-navy/5"
+          >
+            See Upcoming Events
+          </Link>
+        </div>
+      </section>
+
+      {/* Photo slideshow */}
+      <section className="px-4">
+        <PhotoSlideshow />
       </section>
 
       {/* About */}
