@@ -7,6 +7,7 @@ const links = [
   { href: "/admin/members", label: "Members" },
   { href: "/admin/board", label: "Board" },
   { href: "/admin/home-highlights", label: "Homepage" },
+  { href: "/admin/slideshow", label: "Slideshow" },
   { href: "/admin/settings", label: "Contact Info" },
   { href: "/admin/resources", label: "Resources" },
   { href: "/admin/sponsors", label: "Sponsors" },
