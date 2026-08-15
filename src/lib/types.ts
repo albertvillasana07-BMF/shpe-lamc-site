@@ -45,3 +45,10 @@ export type ScholarshipRow = {
   link: string | null;
   created_at: string;
 };
+export type MemberRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  student_id: string | null;
+  created_at: string;
+};
