@@ -46,6 +46,7 @@ export type ScholarshipRow = {
   link: string | null;
   created_at: string;
 };
+
 export type MemberRow = {
   id: string;
   full_name: string;
@@ -53,6 +54,7 @@ export type MemberRow = {
   student_id: string | null;
   created_at: string;
 };
+
 export type SponsorInquiryRow = {
   id: string;
   organization: string;
@@ -60,5 +62,23 @@ export type SponsorInquiryRow = {
   email: string;
   phone: string | null;
   message: string | null;
+  created_at: string;
+};
+
+export type SiteSettings = {
+  id: number;
+  chapter_email: string | null;
+  instagram_handle: string | null;
+  location: string | null;
+};
+
+export type BoardMemberRow = {
+  id: string;
+  full_name: string;
+  role: string | null;
+  about_me: string | null;
+  headshot_url: string | null;
+  linkedin_url: string | null;
+  sort_order: number;
   created_at: string;
 };
