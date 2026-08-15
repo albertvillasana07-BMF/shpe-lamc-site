@@ -1,4 +1,5 @@
 "use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -15,8 +16,30 @@ export async function createEvent(formData: FormData) {
     event_date: String(formData.get("event_date") ?? "") || null,
     event_time: String(formData.get("event_time") ?? "").trim() || null,
     location: String(formData.get("location") ?? "").trim() || null,
+    image_url: String(formData.get("image_url") ?? "").trim() || null,
+    bg_color: String(formData.get("bg_color") ?? "").trim() || null,
     created_by: user?.id ?? null,
   });
+
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+}
+
+export async function updateEvent(formData: FormData) {
+  const supabase = await createClient();
+
+  await supabase
+    .from("events")
+    .update({
+      title: String(formData.get("title") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim() || null,
+      event_date: String(formData.get("event_date") ?? "") || null,
+      event_time: String(formData.get("event_time") ?? "").trim() || null,
+      location: String(formData.get("location") ?? "").trim() || null,
+      image_url: String(formData.get("image_url") ?? "").trim() || null,
+      bg_color: String(formData.get("bg_color") ?? "").trim() || null,
+    })
+    .eq("id", String(formData.get("id")));
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
