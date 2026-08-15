@@ -20,7 +20,7 @@
   --color-pink: var(--pink);
   --color-gold: var(--gold);
   --color-teal: var(--teal);
-  --font-heading: var(--font-fraunces), Georgia, serif;
+  --font-heading: "Fraunces", Georgia, serif;
 }
 
 body {
