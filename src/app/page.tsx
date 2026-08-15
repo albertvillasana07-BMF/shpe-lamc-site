@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import PhotoSlideshow from "@/components/PhotoSlideshow";
 import { createClient } from "@/lib/supabase/server";
-import type { HomeHighlightRow, SiteSettings } from "@/lib/types";
+import type { HomeHighlightRow, SiteSettings, SlideshowPhotoRow } from "@/lib/types";
 
 const DEFAULT_HERO_SUBTITLE =
   "Engineering students at Los Angeles Mission College building community, mentorship, and career opportunities — together.";
@@ -46,17 +46,25 @@ const DEFAULT_HIGHLIGHTS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: settingsData }, { data: highlightsData }] = await Promise.all([
-    supabase.from("site_settings").select("*").eq("id", 1).single(),
-    supabase.from("home_highlights").select("*").order("sort_order", { ascending: true }),
-  ]);
+  const [{ data: settingsData }, { data: highlightsData }, { data: photosData }] =
+    await Promise.all([
+      supabase.from("site_settings").select("*").eq("id", 1).single(),
+      supabase.from("home_highlights").select("*").order("sort_order", { ascending: true }),
+      supabase.from("slideshow_photos").select("*").order("sort_order", { ascending: true }),
+    ]);
 
   const settings = settingsData as SiteSettings | null;
   const dbHighlights = (highlightsData ?? []) as HomeHighlightRow[];
+  const dbPhotos = (photosData ?? []) as SlideshowPhotoRow[];
 
   const heroSubtitle = settings?.hero_subtitle || DEFAULT_HERO_SUBTITLE;
   const aboutUs = settings?.about_us || DEFAULT_ABOUT_US;
   const highlights = dbHighlights.length > 0 ? dbHighlights : DEFAULT_HIGHLIGHTS;
+  const heroImage = settings?.hero_image_url || "/images/hero-banner.jpg";
+  const slidePhotos = dbPhotos.map((p) => ({
+    src: p.image_url,
+    alt: p.caption ?? "SHPE LAMC photo",
+  }));
 
   return (
     <div>
@@ -64,12 +72,13 @@ export default async function HomePage() {
       <section className="relative">
         <div className="relative aspect-[2/1] w-full md:aspect-[16/7]">
           <Image
-            src="/images/hero-banner.jpg"
+            src={heroImage}
             alt="SHPE LAMC — Society of Hispanic Professional Engineers, LAMC STEM"
             fill
             priority
             className="object-cover"
             sizes="100vw"
+            unoptimized={heroImage.startsWith("http")}
           />
         </div>
         <div className="stripe-bar h-2 w-full" />
@@ -94,7 +103,7 @@ export default async function HomePage() {
 
       {/* Photo slideshow */}
       <section className="px-4">
-        <PhotoSlideshow />
+        <PhotoSlideshow photos={slidePhotos} />
       </section>
 
       {/* About */}
