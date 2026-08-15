@@ -74,6 +74,15 @@ export type SiteSettings = {
   location: string | null;
   hero_subtitle: string | null;
   about_us: string | null;
+  hero_image_url: string | null;
+};
+
+export type SlideshowPhotoRow = {
+  id: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 export type HomeHighlightRow = {
