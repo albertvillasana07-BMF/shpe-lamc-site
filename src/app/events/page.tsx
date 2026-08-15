@@ -24,31 +24,56 @@ export default async function EventsPage() {
           </p>
         ) : (
           <ul className="flex flex-col gap-4">
-            {rows.map((e) => (
-              <li
-                key={e.id}
-                className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-lg font-bold text-navy">{e.title}</h2>
-                  <span className="rounded-full bg-orange/10 px-3 py-1 text-xs font-bold text-orange">
-                    {e.event_date
-                      ? new Date(e.event_date + "T00:00:00").toLocaleDateString(
-                          "en-US",
-                          { month: "short", day: "numeric", year: "numeric" }
-                        )
-                      : "Date TBA"}
-                    {e.event_time ? ` · ${e.event_time}` : ""}
-                  </span>
-                </div>
-                {e.location && (
-                  <p className="mt-1 text-sm font-semibold text-teal">{e.location}</p>
-                )}
-                {e.description && (
-                  <p className="mt-2 text-sm text-navy/80">{e.description}</p>
-                )}
-              </li>
-            ))}
+            {rows.map((e) => {
+              const dateLabel = e.event_date
+                ? new Date(e.event_date + "T00:00:00").toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "Date TBA";
+
+              return (
+                <li
+                  key={e.id}
+                  className="relative overflow-hidden rounded-2xl shadow-sm"
+                  style={{
+                    backgroundColor: e.image_url ? undefined : e.bg_color || "#0f2340",
+                  }}
+                >
+                  {e.image_url && (
+                    <img
+                      src={e.image_url}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: e.image_url
+                        ? "linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.05))"
+                        : "linear-gradient(to top, rgba(0,0,0,0.25), rgba(0,0,0,0))",
+                    }}
+                  />
+                  <div className="relative flex min-h-[180px] flex-col justify-end p-6 text-white">
+                    <span className="mb-1 w-fit rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur-sm">
+                      {dateLabel}
+                      {e.event_time ? ` · ${e.event_time}` : ""}
+                    </span>
+                    <h2 className="text-xl font-bold">{e.title}</h2>
+                    {e.location && (
+                      <p className="text-sm font-semibold text-white/85">{e.location}</p>
+                    )}
+                    {e.description && (
+                      <p className="mt-2 max-w-2xl text-sm text-white/85">
+                        {e.description}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
