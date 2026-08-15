@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { SiteSettings } from "@/lib/types";
+import ImageUploadField from "@/components/ImageUploadField";
 import { updateSiteSettings } from "./actions";
 
 export default async function AdminSettingsPage() {
@@ -53,6 +54,17 @@ export default async function AdminSettingsPage() {
             Homepage content
           </p>
         </div>
+        <label className="text-sm font-semibold text-navy/70">
+          Hero banner image
+          <div className="mt-1">
+            <ImageUploadField
+              name="hero_image_url"
+              label="Banner image (leave empty to keep the default)"
+              folder="homepage"
+              defaultValue={settings?.hero_image_url}
+            />
+          </div>
+        </label>
         <label className="text-sm font-semibold text-navy/70">
           Hero subtitle
           <textarea
