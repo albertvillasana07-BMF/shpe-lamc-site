@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { SponsorRow } from "@/lib/types";
+import ImageUploadField from "@/components/ImageUploadField";
 import { createSponsor, deleteSponsor } from "./actions";
 
 export default async function AdminSponsorsPage() {
@@ -41,11 +42,9 @@ export default async function AdminSponsorsPage() {
           placeholder="Website URL"
           className="rounded-lg border border-black/10 px-3 py-2"
         />
-        <input
-          name="logo_url"
-          placeholder="Logo image URL (paste a link to their logo image)"
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
+        <div className="md:col-span-2">
+          <ImageUploadField name="logo_url" label="Sponsor logo" folder="sponsors" />
+        </div>
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Sponsor
         </button>
