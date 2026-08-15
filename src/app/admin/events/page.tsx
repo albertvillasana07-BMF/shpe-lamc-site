@@ -1,6 +1,61 @@
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export async function createEvent(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  await supabase.from("events").insert({
+    title: String(formData.get("title") ?? "").trim(),
+    description: String(formData.get("description") ?? "").trim() || null,
+    event_date: String(formData.get("event_date") ?? "") || null,
+    event_time: String(formData.get("event_time") ?? "").trim() || null,
+    location: String(formData.get("location") ?? "").trim() || null,
+    image_url: String(formData.get("image_url") ?? "").trim() || null,
+    bg_color: String(formData.get("bg_color") ?? "").trim() || null,
+    created_by: user?.id ?? null,
+  });
+
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+}
+
+export async function updateEvent(formData: FormData) {
+  const supabase = await createClient();
+
+  await supabase
+    .from("events")
+    .update({
+      title: String(formData.get("title") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim() || null,
+      event_date: String(formData.get("event_date") ?? "") || null,
+      event_time: String(formData.get("event_time") ?? "").trim() || null,
+      location: String(formData.get("location") ?? "").trim() || null,
+      image_url: String(formData.get("image_url") ?? "").trim() || null,
+      bg_color: String(formData.get("bg_color") ?? "").trim() || null,
+    })
+    .eq("id", String(formData.get("id")));
+
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+}
+
+export async function deleteEvent(formData: FormData) {
+  const supabase = await createClient();
+  await supabase.from("events").delete().eq("id", String(formData.get("id")));
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+}
+
+3. Replace src/app/admin/events/page.tsx with:
+
+Get final admin events page.tsx
+tsx
 import { createClient } from "@/lib/supabase/server";
 import type { EventRow } from "@/lib/types";
-import { createEvent, deleteEvent } from "./actions";
+import { createEvent, deleteEvent, updateEvent } from "./actions";
 
 export default async function AdminEventsPage() {
   const supabase = await createClient();
@@ -46,6 +101,16 @@ export default async function AdminEventsPage() {
           rows={3}
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
+        <input
+          name="image_url"
+          placeholder="Image URL (fills the card as a full background)"
+          className="rounded-lg border border-black/10 px-3 py-2"
+        />
+        <input
+          name="bg_color"
+          placeholder="Background color if no image (e.g. #1D9E75)"
+          className="rounded-lg border border-black/10 px-3 py-2"
+        />
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Event
         </button>
@@ -53,24 +118,81 @@ export default async function AdminEventsPage() {
 
       <div className="flex flex-col gap-3">
         {rows.map((e) => (
-          <div
+          <details
             key={e.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/5 bg-white p-4 shadow-sm"
+            className="rounded-xl border border-black/5 bg-white p-4 shadow-sm"
           >
-            <div>
-              <p className="font-bold text-navy">{e.title}</p>
-              <p className="text-sm text-navy/60">
-                {e.event_date ?? "No date"} {e.event_time ? `· ${e.event_time}` : ""}{" "}
-                {e.location ? `· ${e.location}` : ""}
-              </p>
-            </div>
-            <form action={deleteEvent}>
+            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-navy">{e.title}</p>
+                <p className="text-sm text-navy/60">
+                  {e.event_date ?? "No date"} {e.event_time ? `· ${e.event_time}` : ""}{" "}
+                  {e.location ? `· ${e.location}` : ""}
+                </p>
+              </div>
+            </summary>
+
+            <form
+              action={updateEvent}
+              className="mt-4 grid gap-3 border-t border-black/5 pt-4 md:grid-cols-2"
+            >
+              <input type="hidden" name="id" value={e.id} />
+              <input
+                name="title"
+                defaultValue={e.title}
+                required
+                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
+              />
+              <input
+                name="event_date"
+                type="date"
+                defaultValue={e.event_date ?? ""}
+                className="rounded-lg border border-black/10 px-3 py-2"
+              />
+              <input
+                name="event_time"
+                defaultValue={e.event_time ?? ""}
+                placeholder="Time"
+                className="rounded-lg border border-black/10 px-3 py-2"
+              />
+              <input
+                name="location"
+                defaultValue={e.location ?? ""}
+                placeholder="Location"
+                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
+              />
+              <textarea
+                name="description"
+                defaultValue={e.description ?? ""}
+                rows={3}
+                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
+              />
+              <input
+                name="image_url"
+                defaultValue={e.image_url ?? ""}
+                placeholder="Image URL"
+                className="rounded-lg border border-black/10 px-3 py-2"
+              />
+              <input
+                name="bg_color"
+                defaultValue={e.bg_color ?? ""}
+                placeholder="Background color"
+                className="rounded-lg border border-black/10 px-3 py-2"
+              />
+              <div className="flex gap-3 md:col-span-2">
+                <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90">
+                  Save changes
+                </button>
+              </div>
+            </form>
+
+            <form action={deleteEvent} className="mt-3 border-t border-black/5 pt-3">
               <input type="hidden" name="id" value={e.id} />
               <button className="text-sm font-bold text-pink hover:underline">
-                Delete
+                Delete event
               </button>
             </form>
-          </div>
+          </details>
         ))}
       </div>
     </div>
