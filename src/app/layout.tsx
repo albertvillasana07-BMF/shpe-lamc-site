@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "SHPE LAMC — Society of Hispanic Professional Engineers",
@@ -19,7 +11,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`h-full antialiased ${fraunces.variable}`}>
+    <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <Nav />
         <main className="flex-1">{children}</main>
