@@ -1,37 +1,50 @@
 import Image from "next/image";
 import PageHeader from "@/components/PageHeader";
-
-const SIGNUP_URL =
-  "https://docs.google.com/forms/d/1cKWRkxpgeTNlC2a74ls8foqbB2JEeQAMwVCgTlVdYug/viewform";
+import JoinForm from "@/components/JoinForm";
 
 export default function JoinPage() {
   return (
     <div>
       <PageHeader
         title="Join SHPE LAMC"
-        subtitle="Sign up for emails and updates — it only takes a minute."
+        subtitle="Sign up in a minute — no forms, no QR codes, just fill it out below."
       />
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-12 text-center">
-        <div className="rounded-2xl border-2 border-gold bg-white p-4 shadow-md">
-          <Image
-            src="/images/signup_qr.png"
-            alt="Scan to sign up"
-            width={220}
-            height={220}
-          />
+      <div className="mx-auto max-w-4xl px-4 py-12">
+        <div className="grid overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm md:grid-cols-2">
+          <div className="relative min-h-[200px] bg-navy/5">
+            <Image
+              src="/images/hero-banner.jpg"
+              alt="SHPE LAMC members"
+              fill
+              className="object-cover"
+              sizes="(min-width: 768px) 50vw, 100vw"
+            />
+          </div>
+
+          <div className="p-6 md:p-8">
+            <div className="mb-3 flex items-center gap-2">
+              <Image
+                src="/images/shpe-logo.jpeg"
+                alt="SHPE logo"
+                width={24}
+                height={24}
+                className="rounded-full object-contain"
+              />
+              <h2 className="text-lg">Join SHPE LAMC</h2>
+            </div>
+            <p className="mb-4 text-sm text-navy/70">
+              SHPE connects Hispanic engineering students with mentorship,
+              scholarships, and career opportunities.
+            </p>
+            <ul className="mb-6 flex flex-col gap-1.5 text-sm text-navy/70">
+              <li>🎓 Scholarships</li>
+              <li>🤝 Mentorship</li>
+              <li>✈️ Convention opportunity</li>
+            </ul>
+
+            <JoinForm />
+          </div>
         </div>
-        <p className="text-navy/70">
-          Scan the QR code, or use the button below to fill out the sign-up form
-          (name, student ID, student email, phone number).
-        </p>
-        <a
-          href={SIGNUP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full bg-orange px-8 py-3 text-sm font-bold text-white shadow hover:opacity-90"
-        >
-          Open Sign-Up Form
-        </a>
       </div>
     </div>
   );
