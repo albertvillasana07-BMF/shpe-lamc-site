@@ -72,6 +72,17 @@ export type SiteSettings = {
   chapter_email: string | null;
   instagram_handle: string | null;
   location: string | null;
+  hero_subtitle: string | null;
+  about_us: string | null;
+};
+
+export type HomeHighlightRow = {
+  id: string;
+  title: string;
+  body: string | null;
+  color: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 export type BoardMemberRow = {
