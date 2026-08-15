@@ -41,6 +41,7 @@ export type ScholarshipRow = {
   id: string;
   title: string;
   description: string | null;
+  amount: string | null;
   deadline: string | null;
   link: string | null;
   created_at: string;
