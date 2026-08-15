@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { EventRow } from "@/lib/types";
+import ImageUploadField from "@/components/ImageUploadField";
 import { createEvent, deleteEvent, updateEvent } from "./actions";
 
 export default async function AdminEventsPage() {
@@ -46,11 +47,7 @@ export default async function AdminEventsPage() {
           rows={3}
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
-        <input
-          name="image_url"
-          placeholder="Image URL (fills the card as a full background)"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        <ImageUploadField name="image_url" label="Event image" folder="events" />
         <input
           name="bg_color"
           placeholder="Background color if no image (e.g. #1D9E75)"
@@ -112,11 +109,11 @@ export default async function AdminEventsPage() {
                 rows={3}
                 className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
               />
-              <input
+              <ImageUploadField
                 name="image_url"
-                defaultValue={e.image_url ?? ""}
-                placeholder="Image URL"
-                className="rounded-lg border border-black/10 px-3 py-2"
+                label="Event image"
+                folder="events"
+                defaultValue={e.image_url}
               />
               <input
                 name="bg_color"
