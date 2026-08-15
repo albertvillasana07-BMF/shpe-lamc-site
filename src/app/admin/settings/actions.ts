@@ -14,6 +14,7 @@ export async function updateSiteSettings(formData: FormData) {
       location: String(formData.get("location") ?? "").trim() || null,
       hero_subtitle: String(formData.get("hero_subtitle") ?? "").trim() || null,
       about_us: String(formData.get("about_us") ?? "").trim() || null,
+      hero_image_url: String(formData.get("hero_image_url") ?? "").trim() || null,
     })
     .eq("id", 1);
 
