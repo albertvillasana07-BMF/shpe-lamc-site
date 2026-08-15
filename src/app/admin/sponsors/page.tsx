@@ -25,11 +25,17 @@ export default async function AdminSponsorsPage() {
           required
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
-        <input
+        <select
           name="tier"
-          placeholder="Tier (e.g. Gold, Silver)"
+          defaultValue=""
           className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        >
+          <option value="">No tier</option>
+          <option value="Diamond">Diamond</option>
+          <option value="Platinum">Platinum</option>
+          <option value="Gold">Gold</option>
+          <option value="Silver">Silver</option>
+        </select>
         <input
           name="website_url"
           placeholder="Website URL"
