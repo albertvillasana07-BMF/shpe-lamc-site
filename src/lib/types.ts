@@ -14,6 +14,8 @@ export type EventRow = {
   event_date: string | null;
   event_time: string | null;
   location: string | null;
+  image_url: string | null;
+  bg_color: string | null;
   created_by: string | null;
   created_at: string;
 };
