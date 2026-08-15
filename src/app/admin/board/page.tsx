@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { BoardMemberRow } from "@/lib/types";
+import ImageUploadField from "@/components/ImageUploadField";
 import { createBoardMember, deleteBoardMember, updateBoardMember } from "./actions";
 
 export default async function AdminBoardPage() {
@@ -36,11 +37,7 @@ export default async function AdminBoardPage() {
           rows={2}
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
-        <input
-          name="headshot_url"
-          placeholder="Headshot image URL"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        <ImageUploadField name="headshot_url" label="Headshot" folder="board" />
         <input
           name="linkedin_url"
           placeholder="LinkedIn URL"
@@ -93,11 +90,11 @@ export default async function AdminBoardPage() {
                 rows={2}
                 className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
               />
-              <input
+              <ImageUploadField
                 name="headshot_url"
-                defaultValue={m.headshot_url ?? ""}
-                placeholder="Headshot image URL"
-                className="rounded-lg border border-black/10 px-3 py-2"
+                label="Headshot"
+                folder="board"
+                defaultValue={m.headshot_url}
               />
               <input
                 name="linkedin_url"
