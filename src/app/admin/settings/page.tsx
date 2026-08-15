@@ -47,6 +47,32 @@ export default async function AdminSettingsPage() {
             className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
           />
         </label>
+
+        <div className="mt-2 border-t border-black/5 pt-4">
+          <p className="mb-3 text-xs font-extrabold uppercase tracking-widest text-pink">
+            Homepage content
+          </p>
+        </div>
+        <label className="text-sm font-semibold text-navy/70">
+          Hero subtitle
+          <textarea
+            name="hero_subtitle"
+            defaultValue={settings?.hero_subtitle ?? ""}
+            rows={2}
+            placeholder="Engineering students at Los Angeles Mission College building community, mentorship, and career opportunities — together."
+            className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy/70">
+          About Us paragraph
+          <textarea
+            name="about_us"
+            defaultValue={settings?.about_us ?? ""}
+            rows={4}
+            className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+          />
+        </label>
+
         <button className="mt-2 w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90">
           Save changes
         </button>
