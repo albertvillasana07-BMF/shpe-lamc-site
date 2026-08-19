@@ -47,7 +47,7 @@ export default async function AdminEventsPage() {
           rows={3}
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
-        <ImageUploadField name="image_url" label="Event image" folder="events" />
+        <ImageUploadField name="image_url" label="Event image" folder="events" aspect={4 / 3} />
         <input
           name="bg_color"
           placeholder="Background color if no image (e.g. #1D9E75)"
@@ -114,6 +114,7 @@ export default async function AdminEventsPage() {
                 label="Event image"
                 folder="events"
                 defaultValue={e.image_url}
+                aspect={4 / 3}
               />
               <input
                 name="bg_color"

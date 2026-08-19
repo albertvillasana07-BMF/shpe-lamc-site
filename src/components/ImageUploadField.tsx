@@ -2,35 +2,48 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import ImageCropModal from "@/components/ImageCropModal";
 
 export default function ImageUploadField({
   name,
   label,
   defaultValue,
   folder,
+  aspect = 1,
 }: {
   name: string;
   label: string;
   defaultValue?: string | null;
   folder: string;
+  /** width / height for the crop box — 1 = square, 16/9 = widescreen, etc. */
+  aspect?: number;
 }) {
   const [url, setUrl] = useState(defaultValue ?? "");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
     setError(null);
+    const reader = new FileReader();
+    reader.onload = () => setPendingImageSrc(reader.result as string);
+    reader.readAsDataURL(file);
+    // reset the input so selecting the same file again still fires onChange
+    e.target.value = "";
+  }
+
+  async function handleCropComplete(blob: Blob) {
+    setPendingImageSrc(null);
+    setUploading(true);
 
     const supabase = createClient();
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-    const path = `${folder}/${Date.now()}-${safeName}`;
+    const path = `${folder}/${Date.now()}-cropped.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("public-images")
-      .upload(path, file, { upsert: true });
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
 
     if (uploadError) {
       setError("Upload failed — try again, or paste an image URL below.");
@@ -75,6 +88,16 @@ export default function ImageUploadField({
         onChange={(e) => setUrl(e.target.value)}
         className="rounded-lg border border-black/10 px-3 py-2 text-sm"
       />
+
+      {pendingImageSrc && (
+        <ImageCropModal
+          imageSrc={pendingImageSrc}
+          aspect={aspect}
+          onCancel={() => setPendingImageSrc(null)}
+          onComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
+}
 }

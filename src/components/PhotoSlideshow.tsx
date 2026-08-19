@@ -10,7 +10,6 @@ type Photo = {
 const FALLBACK_PHOTOS: Photo[] = [
   { src: "/images/hero-banner.jpg", alt: "SHPE LAMC chapter photo" },
   { src: "/images/lamc-stem-logo.png", alt: "LAMC STEM" },
-  { src: "/images/shpe-logo.jpeg", alt: "SHPE" },
 ];
 
 export default function PhotoSlideshow({ photos }: { photos?: Photo[] }) {

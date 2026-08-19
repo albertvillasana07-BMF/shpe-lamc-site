@@ -26,7 +26,7 @@ export default async function AdminSlideshowPage() {
         action={addSlideshowPhoto}
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
       >
-        <ImageUploadField name="image_url" label="Photo" folder="slideshow" />
+        <ImageUploadField name="image_url" label="Photo" folder="slideshow" aspect={16 / 9} />
         <input
           name="caption"
           placeholder="Caption (optional)"

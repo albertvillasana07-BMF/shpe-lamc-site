@@ -37,7 +37,7 @@ export default function Nav() {
             alt="SHPE logo"
             width={28}
             height={28}
-            className="rounded-full object-contain"
+            className="object-contain"
           />
           <span className="font-heading text-lg leading-none">SHPE LAMC</span>
         </Link>

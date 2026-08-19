@@ -62,6 +62,7 @@ export default async function AdminSettingsPage() {
               label="Banner image (leave empty to keep the default)"
               folder="homepage"
               defaultValue={settings?.hero_image_url}
+              aspect={16 / 9}
             />
           </div>
         </label>
@@ -83,6 +84,24 @@ export default async function AdminSettingsPage() {
             rows={4}
             className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
           />
+        </label>
+
+        <div className="mt-2 border-t border-black/5 pt-4">
+          <p className="mb-3 text-xs font-extrabold uppercase tracking-widest text-pink">
+            Join page
+          </p>
+        </div>
+        <label className="text-sm font-semibold text-navy/70">
+          Join page image
+          <div className="mt-1">
+            <ImageUploadField
+              name="join_image_url"
+              label="Join page image (leave empty to keep the default)"
+              folder="join"
+              defaultValue={settings?.join_image_url}
+              aspect={4 / 5}
+            />
+          </div>
         </label>
 
         <button className="mt-2 w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90">

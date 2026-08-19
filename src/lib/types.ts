@@ -75,6 +75,7 @@ export type SiteSettings = {
   hero_subtitle: string | null;
   about_us: string | null;
   hero_image_url: string | null;
+  join_image_url: string | null;
 };
 
 export type SlideshowPhotoRow = {

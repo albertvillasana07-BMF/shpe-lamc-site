@@ -37,7 +37,7 @@ export default async function AdminBoardPage() {
           rows={2}
           className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
         />
-        <ImageUploadField name="headshot_url" label="Headshot" folder="board" />
+        <ImageUploadField name="headshot_url" label="Headshot" folder="board" aspect={3 / 4} />
         <input
           name="linkedin_url"
           placeholder="LinkedIn URL"
@@ -95,6 +95,7 @@ export default async function AdminBoardPage() {
                 label="Headshot"
                 folder="board"
                 defaultValue={m.headshot_url}
+                aspect={3 / 4}
               />
               <input
                 name="linkedin_url"

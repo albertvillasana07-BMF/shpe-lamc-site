@@ -18,6 +18,13 @@ export default async function ContactPage() {
     <div>
       <PageHeader title="Contact Us" subtitle="Get in touch with SHPE LAMC." />
       <div className="mx-auto max-w-3xl px-4 py-12">
+        {board.length > 0 && (
+          <div className="mb-12">
+            <h2 className="mb-4 text-xl">Meet the Board</h2>
+            <BoardScrollList rows={board} />
+          </div>
+        )}
+
         <div className="rounded-2xl border border-black/5 bg-white p-10 shadow-sm">
           <h2 className="mb-6 text-2xl">Contact Us</h2>
           <dl className="flex flex-col gap-6">
@@ -47,16 +54,6 @@ export default async function ContactPage() {
             </div>
           </dl>
         </div>
-
-        {board.length > 0 && (
-          <div className="mt-12">
-            <h2 className="mb-1 text-xl">Meet the Board</h2>
-            <p className="mb-4 text-sm text-navy/60">
-              Scroll to browse — the centered card grows.
-            </p>
-            <BoardScrollList rows={board} />
-          </div>
-        )}
       </div>
     </div>
   );

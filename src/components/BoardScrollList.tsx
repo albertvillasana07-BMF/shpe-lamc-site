@@ -34,7 +34,7 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
   return (
     <div
       ref={containerRef}
-      className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
+      className="flex max-h-[80vh] flex-col gap-5 overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
       style={{ scrollSnapType: "y proximity" }}
     >
       {rows.map((m, i) => (
@@ -43,10 +43,10 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
           ref={(el) => {
             cardRefs.current[i] = el;
           }}
-          className="flex gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition-transform duration-200 ease-out"
+          className="flex gap-5 rounded-2xl border border-black/5 bg-white p-6 shadow-sm transition-transform duration-200 ease-out"
           style={{ scrollSnapAlign: "center" }}
         >
-          <div className="h-28 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-navy/10">
+          <div className="h-40 w-32 flex-shrink-0 overflow-hidden rounded-xl bg-navy/10">
             {m.headshot_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -56,7 +56,7 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-navy/30">
-                <svg width="32" height="32" fill="none" viewBox="0 0 24 24">
+                <svg width="40" height="40" fill="none" viewBox="0 0 24 24">
                   <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
                   <path
                     d="M4 20c0-4 4-6 8-6s8 2 8 6"
@@ -68,17 +68,17 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
             )}
           </div>
           <div className="flex flex-col justify-center">
-            <p className="text-orange">{m.full_name}</p>
-            {m.role && <p className="text-sm font-semibold text-navy">{m.role}</p>}
+            <p className="text-lg text-orange">{m.full_name}</p>
+            {m.role && <p className="text-base font-semibold text-navy">{m.role}</p>}
             {m.about_me && (
               <p className="mt-1 text-sm leading-snug text-navy/70">{m.about_me}</p>
             )}
             {m.linkedin_url && (
-              <a
+              
                 href={m.linkedin_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 text-xs font-bold text-orange"
+                className="mt-2 text-xs font-bold text-orange"
               >
                 LinkedIn →
               </a>

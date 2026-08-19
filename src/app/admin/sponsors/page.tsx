@@ -43,7 +43,7 @@ export default async function AdminSponsorsPage() {
           className="rounded-lg border border-black/10 px-3 py-2"
         />
         <div className="md:col-span-2">
-          <ImageUploadField name="logo_url" label="Sponsor logo" folder="sponsors" />
+          <ImageUploadField name="logo_url" label="Sponsor logo" folder="sponsors" aspect={16 / 9} />
         </div>
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Sponsor
