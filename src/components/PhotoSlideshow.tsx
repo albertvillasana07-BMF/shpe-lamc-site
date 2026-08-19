@@ -18,7 +18,7 @@ export default function PhotoSlideshow({ photos }: { photos?: Photo[] }) {
   const totalSeconds = SLIDE_SECONDS * slides.length;
 
   return (
-    <div className="relative mx-auto mt-4 h-56 w-full max-w-6xl overflow-hidden rounded-2xl bg-navy/5 md:h-80">
+    <div className="relative mx-auto mt-4 aspect-video w-full max-w-6xl overflow-hidden rounded-2xl bg-navy/5">
       {slides.map((photo, i) => (
         <div
           key={photo.src + i}
