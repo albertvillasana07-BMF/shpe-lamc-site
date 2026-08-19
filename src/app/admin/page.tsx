@@ -71,7 +71,7 @@ export default async function HomePage() {
     <div>
       {/* Hero */}
       <section className="relative">
-        <div className="relative aspect-video w-full">
+        <div className="relative aspect-video max-h-[520px] w-full">
           <Image
             src={heroImage}
             alt="SHPE LAMC — Society of Hispanic Professional Engineers, LAMC STEM"
