@@ -26,9 +26,7 @@ export default async function Footer() {
             <p>
               Email:{" "}
               {email ? (
-                <a href={`mailto:${email}`} className="font-semibold text-gold hover:underline">
-                  {email}
-                </a>
+                <a href={`mailto:${email}`} className="font-semibold text-gold hover:underline">{email}</a>
               ) : (
                 <span className="font-semibold text-gold">[chapter email]</span>
               )}
@@ -36,14 +34,7 @@ export default async function Footer() {
             <p>
               Instagram:{" "}
               {instagram ? (
-                
-                  href={`https://instagram.com/${instagram.replace(/^@/, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-gold hover:underline"
-                >
-                  {instagram}
-                </a>
+                <a href={`https://instagram.com/${instagram.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-gold hover:underline">{instagram}</a>
               ) : (
                 <span className="font-semibold text-gold">[@handle]</span>
               )}

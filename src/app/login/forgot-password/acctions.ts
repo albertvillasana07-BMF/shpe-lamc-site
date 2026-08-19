@@ -23,7 +23,5 @@ export async function requestPasswordReset(formData: FormData) {
     redirect(`/login/forgot-password?error=${encodeURIComponent(error.message)}`);
   }
 
-  // Always show the same success message, whether or not the email exists —
-  // don't leak which emails have accounts.
   redirect("/login/forgot-password?sent=1");
 }

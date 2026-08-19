@@ -15,7 +15,6 @@ export default function ImageUploadField({
   label: string;
   defaultValue?: string | null;
   folder: string;
-  /** width / height for the crop box — 1 = square, 16/9 = widescreen, etc. */
   aspect?: number;
 }) {
   const [url, setUrl] = useState(defaultValue ?? "");
@@ -30,7 +29,6 @@ export default function ImageUploadField({
     const reader = new FileReader();
     reader.onload = () => setPendingImageSrc(reader.result as string);
     reader.readAsDataURL(file);
-    // reset the input so selecting the same file again still fires onChange
     e.target.value = "";
   }
 
@@ -99,5 +97,4 @@ export default function ImageUploadField({
       )}
     </div>
   );
-}
 }

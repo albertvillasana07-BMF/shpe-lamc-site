@@ -74,14 +74,7 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
               <p className="mt-1 text-sm leading-snug text-navy/70">{m.about_me}</p>
             )}
             {m.linkedin_url && (
-              
-                href={m.linkedin_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 text-xs font-bold text-orange"
-              >
-                LinkedIn →
-              </a>
+              <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs font-bold text-orange">LinkedIn →</a>
             )}
           </div>
         </div>
