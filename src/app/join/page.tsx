@@ -36,7 +36,7 @@ export default async function JoinPage() {
           <div className="p-6 md:p-8">
             <div className="mb-3 flex items-center gap-2">
               <Image
-                src="/images/shpe-symbol.png"
+                src="/images/symbol.png"
                 alt="SHPE LAMC logo"
                 width={24}
                 height={24}

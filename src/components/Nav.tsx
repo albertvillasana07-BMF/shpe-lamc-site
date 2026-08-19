@@ -33,8 +33,8 @@ export default function Nav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2.5">
           <Image
-            src="/images/shpe-logo.jpeg"
-            alt="SHPE logo"
+            src="/images/symbol.png"
+            alt="SHPE LAMC logo"
             width={28}
             height={28}
             className="object-contain"
