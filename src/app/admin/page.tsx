@@ -1,44 +1,140 @@
+import Image from "next/image";
 import Link from "next/link";
+import PhotoSlideshow from "@/components/PhotoSlideshow";
 import { createClient } from "@/lib/supabase/server";
+import type { HomeHighlightRow, SiteSettings, SlideshowPhotoRow } from "@/lib/types";
 
-export default async function AdminDashboard() {
+const DEFAULT_HERO_SUBTITLE =
+  "Engineering students at Los Angeles Mission College building community, mentorship, and career opportunities — together.";
+
+const DEFAULT_ABOUT_US =
+  "SHPE LAMC is the Los Angeles Mission College chapter of the Society of Hispanic Professional Engineers. We connect engineering students with mentorship, scholarships, and career opportunities, while giving back through outreach to local middle and high schools.";
+
+const DEFAULT_HIGHLIGHTS = [
+  {
+    title: "Mentorship & Networking",
+    body: "Connect with engineering professionals and alumni.",
+    color: "bg-orange",
+  },
+  {
+    title: "Scholarships",
+    body: "Opportunities through SHPE National and local sponsors.",
+    color: "bg-teal",
+  },
+  {
+    title: "National Convention",
+    body: "Travel, workshops, and the career fair.",
+    color: "bg-pink",
+  },
+  {
+    title: "Hands-on Outreach",
+    body: "Work with local middle & high school programs.",
+    color: "bg-navy",
+  },
+  {
+    title: "Resume & Interview Prep",
+    body: "Workshops throughout the semester.",
+    color: "bg-gold",
+  },
+  {
+    title: "Community",
+    body: "A community that supports your path through engineering.",
+    color: "bg-orange",
+  },
+];
+
+export default async function HomePage() {
   const supabase = await createClient();
 
-  const [events, resources, sponsors, scholarships, pending] = await Promise.all([
-    supabase.from("events").select("*", { count: "exact", head: true }),
-    supabase.from("resources").select("*", { count: "exact", head: true }),
-    supabase.from("sponsors").select("*", { count: "exact", head: true }),
-    supabase.from("scholarships").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "pending"),
-  ]);
+  const [{ data: settingsData }, { data: highlightsData }, { data: photosData }] =
+    await Promise.all([
+      supabase.from("site_settings").select("*").eq("id", 1).single(),
+      supabase.from("home_highlights").select("*").order("sort_order", { ascending: true }),
+      supabase.from("slideshow_photos").select("*").order("sort_order", { ascending: true }),
+    ]);
 
-  const cards = [
-    { label: "Events", value: events.count ?? 0, href: "/admin/events", color: "bg-orange" },
-    { label: "Resources", value: resources.count ?? 0, href: "/admin/resources", color: "bg-teal" },
-    { label: "Sponsors", value: sponsors.count ?? 0, href: "/admin/sponsors", color: "bg-pink" },
-    { label: "Scholarships", value: scholarships.count ?? 0, href: "/admin/scholarships", color: "bg-gold" },
-    { label: "Pending Approvals", value: pending.count ?? 0, href: "/admin/approvals", color: "bg-navy" },
-  ];
+  const settings = settingsData as SiteSettings | null;
+  const dbHighlights = (highlightsData ?? []) as HomeHighlightRow[];
+  const dbPhotos = (photosData ?? []) as SlideshowPhotoRow[];
+
+  const heroSubtitle = settings?.hero_subtitle || DEFAULT_HERO_SUBTITLE;
+  const aboutUs = settings?.about_us || DEFAULT_ABOUT_US;
+  const highlights = dbHighlights.length > 0 ? dbHighlights : DEFAULT_HIGHLIGHTS;
+  const heroImage = settings?.hero_image_url || "/images/hero-banner.jpg";
+  const slidePhotos = dbPhotos.map((p) => ({
+    src: p.image_url,
+    alt: p.caption ?? "SHPE LAMC photo",
+    caption: p.caption,
+  }));
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-extrabold text-navy">Dashboard</h1>
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {cards.map((c) => (
+      {/* Hero */}
+      <section className="relative">
+        <div className="relative aspect-video w-full">
+          <Image
+            src={heroImage}
+            alt="SHPE LAMC — Society of Hispanic Professional Engineers, LAMC STEM"
+            fill
+            priority
+            className="object-cover"
+            sizes="100vw"
+            unoptimized={heroImage.startsWith("http")}
+          />
+        </div>
+        <div className="stripe-bar h-2 w-full" />
+        <div className="mx-auto max-w-3xl px-4 py-4 text-center text-sm text-navy/70">
+          {heroSubtitle}
+        </div>
+        <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-3 px-4 pb-6">
           <Link
-            key={c.label}
-            href={c.href}
-            className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm hover:shadow-md"
+            href="/join"
+            className="rounded-full bg-navy px-6 py-3 text-sm font-bold text-white shadow hover:opacity-90"
           >
-            <div className={`mb-3 h-2 w-10 rounded-full ${c.color}`} />
-            <p className="text-3xl font-extrabold text-navy">{c.value}</p>
-            <p className="text-sm font-semibold text-navy/60">{c.label}</p>
+            Join SHPE LAMC
           </Link>
-        ))}
-      </div>
+          <Link
+            href="/events"
+            className="rounded-full border-2 border-navy px-6 py-3 text-sm font-bold text-navy hover:bg-navy/5"
+          >
+            See Upcoming Events
+          </Link>
+        </div>
+      </section>
+
+      {/* Photo slideshow */}
+      <section className="px-4">
+        <PhotoSlideshow photos={slidePhotos} />
+      </section>
+
+      {/* About */}
+      <section className="mx-auto max-w-6xl px-4 py-14">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-widest text-pink">
+          About Us
+        </h2>
+        <p className="max-w-3xl whitespace-pre-line text-lg text-navy/90">
+          {aboutUs}
+        </p>
+      </section>
+
+      {/* Why join */}
+      <section className="mx-auto max-w-6xl px-4 pb-16">
+        <h2 className="mb-6 text-center text-sm font-extrabold uppercase tracking-widest text-pink">
+          Why Join
+        </h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          {highlights.map((item, i) => (
+            <div
+              key={"id" in item ? item.id : i}
+              className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
+            >
+              <div className={`mb-3 h-2 w-10 rounded-full ${item.color ?? "bg-orange"}`} />
+              <h3 className="mb-1 font-bold text-navy">{item.title}</h3>
+              <p className="text-sm text-navy/70">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

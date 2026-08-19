@@ -5,6 +5,7 @@ import Image from "next/image";
 type Photo = {
   src: string;
   alt: string;
+  caption?: string | null;
 };
 
 const FALLBACK_PHOTOS: Photo[] = [
@@ -37,6 +38,13 @@ export default function PhotoSlideshow({ photos }: { photos?: Photo[] }) {
             sizes="100vw"
             unoptimized={photo.src.startsWith("http")}
           />
+          {photo.caption && (
+            <div className="absolute bottom-3 left-3 max-w-[70%] rounded-full bg-black/35 px-3 py-1.5 backdrop-blur-sm">
+              <p className="truncate text-xs font-semibold text-white md:text-sm">
+                {photo.caption}
+              </p>
+            </div>
+          )}
         </div>
       ))}
       <style>{`
