@@ -278,20 +278,12 @@ export default async function AdminResourcesPage({
               </p>
               <div className="mt-1 flex gap-4">
                 {r.openUrl && (
-                  
-                    href={r.openUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-orange"
-                  >
+                  <a href={r.openUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-orange">
                     Open
                   </a>
                 )}
                 {r.downloadUrl && (
-                  
-                    href={r.downloadUrl}
-                    className="text-sm font-semibold text-navy/70 hover:text-orange"
-                  >
+                  <a href={r.downloadUrl} className="text-sm font-semibold text-navy/70 hover:text-orange">
                     Download
                   </a>
                 )}
