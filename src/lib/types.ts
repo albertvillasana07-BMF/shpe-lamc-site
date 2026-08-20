@@ -16,6 +16,8 @@ export type EventRow = {
   location: string | null;
   created_by: string | null;
   created_at: string;
+  image_url: string | null;
+  bg_color: string | null;
 };
 
 export type ResourceRow = {
@@ -53,5 +55,63 @@ export type ScholarshipRow = {
   description: string | null;
   deadline: string | null;
   link: string | null;
+  created_at: string;
+  amount: string | null;
+};
+
+export type MemberRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  student_id: string | null;
+  created_at: string;
+};
+
+export type SponsorInquiryRow = {
+  id: string;
+  organization: string;
+  contact_name: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  created_at: string;
+};
+
+export type SiteSettings = {
+  id: number;
+  chapter_email: string | null;
+  instagram_handle: string | null;
+  location: string | null;
+  hero_subtitle: string | null;
+  about_us: string | null;
+  hero_image_url: string | null;
+  join_image_url: string | null;
+};
+
+export type BoardMemberRow = {
+  id: string;
+  full_name: string;
+  role: string | null;
+  about_me: string | null;
+  headshot_url: string | null;
+  linkedin_url: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type HomeHighlightRow = {
+  id: string;
+  title: string;
+  body: string | null;
+  color: string | null;
+  sort_order: number;
+  created_at: string;
+};
+
+export type SlideshowPhotoRow = {
+  id: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number;
   created_at: string;
 };
