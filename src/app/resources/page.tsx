@@ -1,4 +1,4 @@
-iimport PageHeader from "@/components/PageHeader";
+import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import type { ResourceRow } from "@/lib/types";
 
