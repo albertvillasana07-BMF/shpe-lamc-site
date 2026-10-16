@@ -4,8 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 
 const links = [
   { href: "/", label: "Home" },
@@ -18,20 +16,9 @@ const links = [
 ];
 
 export default function Nav() {
-  const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Only signed-in board members ever see the Admin link. Visitors don't.
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, []);
 
   // Close with the Escape key and put focus back on the menu button
   useEffect(() => {
@@ -45,8 +32,6 @@ export default function Nav() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
-
-  const menuLinks = user ? [...links, { href: "/admin", label: "Admin dashboard" }] : links;
 
   return (
     <header className="on-dark sticky top-0 z-50 bg-navy text-white shadow-md">
@@ -111,7 +96,7 @@ export default function Nav() {
         className="border-t border-white/10 bg-navy-light"
       >
         <ul className="mx-auto max-w-6xl px-4 py-2">
-          {menuLinks.map((l) => {
+          {links.map((l) => {
             const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
             return (
               <li key={l.href} className="border-b border-white/10 last:border-b-0">

@@ -23,13 +23,19 @@ export async function getCroppedImageBlob(
   imageSrc: string,
   cropAreaPixels: CropArea,
   mimeType: string = "image/jpeg",
-  quality: number = 0.92
+  quality: number = 0.85,
+  maxSize: number = 1600
 ): Promise<Blob> {
   const image = await loadImage(imageSrc);
 
+  // Shrink big phone photos so pages load fast. 1600px is plenty for the site.
+  const scale = Math.min(1, maxSize / Math.max(cropAreaPixels.width, cropAreaPixels.height));
+  const outW = Math.round(cropAreaPixels.width * scale);
+  const outH = Math.round(cropAreaPixels.height * scale);
+
   const canvas = document.createElement("canvas");
-  canvas.width = cropAreaPixels.width;
-  canvas.height = cropAreaPixels.height;
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get canvas context");
 
@@ -41,8 +47,8 @@ export async function getCroppedImageBlob(
     cropAreaPixels.height,
     0,
     0,
-    cropAreaPixels.width,
-    cropAreaPixels.height
+    outW,
+    outH
   );
 
   return new Promise((resolve, reject) => {

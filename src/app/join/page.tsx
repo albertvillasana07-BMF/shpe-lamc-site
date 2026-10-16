@@ -5,11 +5,15 @@ import ShpeText from "@/components/ShpeText";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Join" };
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { SiteSettings } from "@/lib/types";
 
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
+
 export default async function JoinPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("site_settings")
     .select("join_image_url, join_image_alt")

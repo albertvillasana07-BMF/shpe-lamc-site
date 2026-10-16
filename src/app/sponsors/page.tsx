@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { SponsorRow } from "@/lib/types";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
 
 const TIER_ORDER = ["Diamond", "Platinum", "Gold", "Silver"] as const;
 
@@ -19,7 +23,7 @@ function SponsorLogo({ s, heightClass }: { s: SponsorRow; heightClass: string })
       {s.logo_url ? (
         // The name is printed right below, so the logo itself is decorative
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={s.logo_url} alt="" className={`${heightClass} w-full object-contain`} />
+        <img loading="lazy" decoding="async" src={s.logo_url} alt="" className={`${heightClass} w-full object-contain`} />
       ) : (
         <div
           aria-hidden="true"
@@ -46,7 +50,7 @@ function SponsorLogo({ s, heightClass }: { s: SponsorRow; heightClass: string })
 export const metadata: Metadata = { title: "Sponsors" };
 
 export default async function SponsorsPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: sponsors } = await supabase
     .from("sponsors")
     .select("*")

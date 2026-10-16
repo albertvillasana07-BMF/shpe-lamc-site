@@ -59,17 +59,15 @@ h1, h2, h3, h4,
   letter-spacing: -0.01em;
 }
 
-.gradient-header {
-  background: linear-gradient(120deg, #c2410c 0%, #b42b3f 50%, #a3195b 100%);
-}
-
-.stripe-bar {
-  background: repeating-linear-gradient(
-    90deg,
-    #001f5b 0 24px,
-    #ffd166 24px 48px,
-    #0f766e 48px 72px
-  );
+/* Navy "blueprint" background with a faint graph-paper grid */
+.blueprint {
+  background-color: var(--navy);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
 }
 
 /* ---------- Accessibility ---------- */

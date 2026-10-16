@@ -82,7 +82,7 @@ export default async function HomePage() {
             unoptimized={heroImage.startsWith("http")}
           />
         </div>
-        <div className="stripe-bar h-2 w-full" />
+
         <div className="mx-auto max-w-3xl px-4 py-4 text-center text-sm text-navy/70">
           {heroSubtitle}
         </div>

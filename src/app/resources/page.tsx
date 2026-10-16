@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { ResourceRow } from "@/lib/types";
+
+// Cached and rebuilt at most every 30 minutes, or right away when an admin saves a change.
+export const revalidate = 1800;
+
 
 export const metadata: Metadata = { title: "Resources" };
 
 export default async function PublicResourcesPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   // RLS already restricts anonymous/public visitors to rows where
   // is_public = true, but we filter explicitly too for clarity.
@@ -23,10 +27,10 @@ export default async function PublicResourcesPage() {
     rows.map(async (r) => {
       if (!r.file_url) return { ...r, openUrl: null, downloadUrl: null };
       const [openSigned, downloadSigned] = await Promise.all([
-        supabase.storage.from("resources").createSignedUrl(r.file_url, 3600),
+        supabase.storage.from("resources").createSignedUrl(r.file_url, 7200),
         supabase.storage
           .from("resources")
-          .createSignedUrl(r.file_url, 3600, { download: true }),
+          .createSignedUrl(r.file_url, 7200, { download: true }),
       ]);
       return {
         ...r,

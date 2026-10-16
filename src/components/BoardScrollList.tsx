@@ -1,61 +1,20 @@
-"use client";
-
-import { useEffect, useRef } from "react";
 import type { BoardMemberRow } from "@/lib/types";
+import SnapScrollList from "@/components/SnapScrollList";
 
 export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    function update() {
-      if (!container || reduceMotion) return;
-      const mid = container.scrollTop + container.clientHeight / 2;
-      cardRefs.current.forEach((card) => {
-        if (!card) return;
-        const center = card.offsetTop + card.offsetHeight / 2;
-        const dist = Math.abs(center - mid);
-        const t = Math.max(0, 1 - dist / 220);
-        const scale = 0.94 + 0.08 * t;
-        const opacity = 0.7 + 0.3 * t;
-        card.style.transform = `scale(${scale.toFixed(3)})`;
-        card.style.opacity = opacity.toFixed(2);
-      });
-    }
-
-    update();
-    container.addEventListener("scroll", update, { passive: true });
-    return () => container.removeEventListener("scroll", update);
-  }, [rows]);
-
   return (
-    <div
-      ref={containerRef}
-      role="region"
-      aria-label="Board members, scrollable list"
-      tabIndex={0}
-      className="max-h-[80vh] overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
-      style={{ scrollSnapType: "y proximity" }}
-    >
-      <ul className="flex flex-col gap-5">
-      {rows.map((m, i) => (
-        <li
+    <SnapScrollList label="Board members, scrollable list" heightClass="h-[75vh]">
+      {rows.map((m) => (
+        <div
           key={m.id}
-          ref={(el) => {
-            cardRefs.current[i] = el;
-          }}
-          className="flex gap-5 rounded-2xl border border-black/5 bg-white p-6 shadow-sm transition-transform duration-200 ease-out"
-          style={{ scrollSnapAlign: "center" }}
+          className="flex gap-5 rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
         >
           <div className="h-40 w-32 flex-shrink-0 overflow-hidden rounded-xl bg-navy/10">
             {m.headshot_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
+                loading="lazy"
+                decoding="async"
                 src={m.headshot_url}
                 alt={`Headshot of ${m.full_name}`}
                 className="h-full w-full object-cover"
@@ -64,11 +23,7 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
               <div className="flex h-full w-full items-center justify-center text-navy/70">
                 <svg width="40" height="40" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
-                  <path
-                    d="M4 20c0-4 4-6 8-6s8 2 8 6"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  />
+                  <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" strokeWidth="1.5" />
                 </svg>
               </div>
             )}
@@ -76,19 +31,22 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
           <div className="flex flex-col justify-center">
             <h3 className="text-lg text-orange">{m.full_name}</h3>
             {m.role && <p className="text-base font-semibold text-navy">{m.role}</p>}
-            {m.about_me && (
-              <p className="mt-1 text-sm leading-snug text-navy/70">{m.about_me}</p>
-            )}
+            {m.about_me && <p className="mt-1 text-sm leading-snug text-navy/80">{m.about_me}</p>}
             {m.linkedin_url && (
-              <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" className="mt-2 text-sm font-bold text-orange underline-offset-2 hover:underline">
-                LinkedIn<span className="sr-only"> profile for {m.full_name} (opens in a new tab)</span>
+              <a
+                href={m.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 text-sm font-bold text-orange underline-offset-2 hover:underline"
+              >
+                LinkedIn
+                <span className="sr-only"> profile for {m.full_name} (opens in a new tab)</span>
                 <span aria-hidden="true"> →</span>
               </a>
             )}
           </div>
-        </li>
+        </div>
       ))}
-      </ul>
-    </div>
+    </SnapScrollList>
   );
 }

@@ -39,7 +39,6 @@ export async function updateSiteSettings(formData: FormData) {
   await supabase.from("site_settings").update(update).eq("id", 1);
 
   revalidatePath("/admin/settings");
-  revalidatePath("/contact");
-  revalidatePath("/");
-  revalidatePath("/join");
+  // Contact info shows in the footer of every page, so refresh them all
+  revalidatePath("/", "layout");
 }

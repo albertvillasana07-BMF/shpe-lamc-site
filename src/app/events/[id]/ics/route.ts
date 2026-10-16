@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { buildIcs } from "@/lib/eventCalendar";
 import type { EventRow } from "@/lib/types";
 
 export async function GET(req: NextRequest, ctx: RouteContext<"/events/[id]/ics">) {
   const { id } = await ctx.params;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("events").select("*").eq("id", id).single();
   const event = data as EventRow | null;
 

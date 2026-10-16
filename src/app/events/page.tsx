@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { todayInLA } from "@/lib/dates";
 import { googleCalendarUrl } from "@/lib/eventCalendar";
 import type { EventRow } from "@/lib/types";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
 
 export const metadata: Metadata = { title: "Events" };
 
@@ -28,7 +32,7 @@ function EventCard({ e, past }: { e: EventRow; past?: boolean }) {
     >
       {e.image_url && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={e.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img loading="lazy" decoding="async" src={e.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
       )}
       <div
         aria-hidden="true"
@@ -86,7 +90,7 @@ function EventCard({ e, past }: { e: EventRow; past?: boolean }) {
 }
 
 export default async function EventsPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: events } = await supabase
     .from("events")
     .select("*")

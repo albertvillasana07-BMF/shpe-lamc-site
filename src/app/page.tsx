@@ -3,8 +3,13 @@ import Link from "next/link";
 import PhotoSlideshow from "@/components/PhotoSlideshow";
 import OurStory from "@/components/OurStory";
 import ShpeText from "@/components/ShpeText";
-import { createClient } from "@/lib/supabase/server";
+import DisciplineBar from "@/components/DisciplineBar";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { HomeHighlightRow, SiteSettings, SlideshowPhotoRow } from "@/lib/types";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
 
 const DEFAULT_HERO_SUBTITLE =
   "Engineering students at Los Angeles Mission College building community, mentorship, and career opportunities — together.";
@@ -46,7 +51,7 @@ const DEFAULT_HIGHLIGHTS = [
 ];
 
 export default async function HomePage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const [{ data: settingsData }, { data: highlightsData }, { data: photosData }] =
     await Promise.all([
@@ -87,7 +92,7 @@ export default async function HomePage() {
             unoptimized={heroImage.startsWith("http")}
           />
         </div>
-        <div className="stripe-bar h-2 w-full" aria-hidden="true" />
+        <DisciplineBar />
         <h1 className="sr-only">SHPE LAMC, Society of Hispanic Professional Engineers at Los Angeles Mission College</h1>
         <p className="mx-auto max-w-3xl px-4 py-4 text-center text-base text-navy/80">
           {heroSubtitle}

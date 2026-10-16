@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
 import ScholarshipScrollList from "@/components/ScholarshipScrollList";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { ScholarshipRow } from "@/lib/types";
 import { todayInLA } from "@/lib/dates";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
 
 export const metadata: Metadata = { title: "Scholarships" };
 
 export default async function ScholarshipsPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: scholarships } = await supabase
     .from("scholarships")
     .select("*")

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
 
 export const metadata: Metadata = { title: "Accessibility" };
 
 export default async function AccessibilityPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("site_settings")
     .select("chapter_email")

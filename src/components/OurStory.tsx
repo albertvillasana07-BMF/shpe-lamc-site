@@ -57,7 +57,7 @@ function EventCard({
       <div className={`relative aspect-[16/9] w-full ${tint}`}>
         {imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={imageUrl}
             alt={imageAlt ?? ""}
             className="absolute inset-0 h-full w-full object-cover"
@@ -87,7 +87,7 @@ export default function OurStory({ settings }: { settings: SiteSettings | null }
           <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-navy/10 text-navy/70">
             {settings?.founder_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <img loading="lazy" decoding="async"
                 src={settings.founder_image_url}
                 alt={settings.founder_image_alt || "Vincent Esparza"}
                 className="h-full w-full object-cover"
@@ -132,7 +132,7 @@ export default function OurStory({ settings }: { settings: SiteSettings | null }
         <div className="h-24 w-24 overflow-hidden rounded-full bg-navy-light text-white/80">
           {settings?.builder_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={settings.builder_image_url}
               alt={settings.builder_image_alt || "Alberto Villasana"}
               className="h-full w-full object-cover"

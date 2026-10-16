@@ -41,5 +41,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Signed-in board members who click "Board login" go straight to the dashboard
+  if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return supabaseResponse;
 }
