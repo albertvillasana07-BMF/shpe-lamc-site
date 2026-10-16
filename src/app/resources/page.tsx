@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import type { ResourceRow } from "@/lib/types";
+
+export const metadata: Metadata = { title: "Resources" };
 
 export default async function PublicResourcesPage() {
   const supabase = await createClient();
@@ -48,7 +51,7 @@ export default async function PublicResourcesPage() {
       />
       <div className="mx-auto max-w-4xl px-4 py-12">
         {withLinks.length === 0 ? (
-          <p className="text-navy/60">
+          <p className="text-navy/70">
             No public resources are posted yet — check back soon.
           </p>
         ) : (
@@ -66,11 +69,11 @@ export default async function PublicResourcesPage() {
                     >
                       <div>
                         <p className="flex items-center gap-2 font-bold text-navy">
-                          <span aria-hidden>📄</span>
+                          <span aria-hidden="true">📄</span>
                           {r.title}
                         </p>
                         {r.description && (
-                          <p className="mt-1 text-sm text-navy/60">
+                          <p className="mt-1 text-sm text-navy/70">
                             {r.description}
                           </p>
                         )}
@@ -78,12 +81,12 @@ export default async function PublicResourcesPage() {
                       <div className="flex gap-4">
                         {r.openUrl && (
                           <a href={r.openUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-orange">
-                            Open
+                            Open<span className="sr-only"> {r.title} (opens in a new tab)</span>
                           </a>
                         )}
                         {r.downloadUrl && (
                           <a href={r.downloadUrl} className="text-sm font-semibold text-navy/70 hover:text-orange">
-                            Download
+                            Download<span className="sr-only"> {r.title}</span>
                           </a>
                         )}
                       </div>

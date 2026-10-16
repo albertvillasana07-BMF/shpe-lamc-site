@@ -98,7 +98,7 @@ export default async function AdminResourcesPage({
   return (
     <div>
       <h1 className="mb-2 text-2xl font-extrabold text-navy">Resource Library</h1>
-      <p className="mb-4 text-sm text-navy/60">
+      <p className="mb-4 text-sm text-navy/70">
         Files here are only visible to approved board members — this is your
         internal document library.
       </p>
@@ -110,7 +110,7 @@ export default async function AdminResourcesPage({
         </Link>
         {breadcrumbs.map((f) => (
           <span key={f.id} className="flex items-center gap-1">
-            <span className="text-navy/30">/</span>
+            <span className="text-navy/70">/</span>
             <Link
               href={`/admin/resources?folder=${f.id}`}
               className="hover:text-orange"
@@ -131,12 +131,15 @@ export default async function AdminResourcesPage({
             New Folder
           </p>
           <input type="hidden" name="parent_id" value={folderId ?? ""} />
-          <input
-            name="name"
-            placeholder="Folder name"
-            required
-            className="rounded-lg border border-black/10 px-3 py-2"
-          />
+          <label className="text-sm font-semibold text-navy">
+            Folder name
+            <input
+              name="name"
+              placeholder="Folder name"
+              required
+              className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+            />
+          </label>
           <button className="w-fit rounded-full bg-teal px-6 py-2 text-sm font-bold text-white hover:opacity-90">
             Create Folder
           </button>
@@ -151,29 +154,41 @@ export default async function AdminResourcesPage({
             Upload File{currentFolder ? ` to "${currentFolder.name}"` : ""}
           </p>
           <input type="hidden" name="folder_id" value={folderId ?? ""} />
-          <input
-            name="title"
-            placeholder="Document title"
-            required
-            className="rounded-lg border border-black/10 px-3 py-2"
-          />
-          <input
-            name="category"
-            placeholder="Category (e.g. Meeting Notes, Bylaws)"
-            className="rounded-lg border border-black/10 px-3 py-2"
-          />
-          <input
-            name="file"
-            type="file"
-            required
-            className="rounded-lg border border-black/10 px-3 py-2"
-          />
-          <textarea
-            name="description"
-            placeholder="Description"
-            rows={2}
-            className="rounded-lg border border-black/10 px-3 py-2"
-          />
+          <label className="text-sm font-semibold text-navy">
+            Document title
+            <input
+              name="title"
+              placeholder="Document title"
+              required
+              className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-semibold text-navy">
+            Category
+            <input
+              name="category"
+              placeholder="Category (e.g. Meeting Notes, Bylaws)"
+              className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-semibold text-navy">
+            File to upload
+            <input
+              name="file"
+              type="file"
+              required
+              className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm font-semibold text-navy">
+            Description
+            <textarea
+              name="description"
+              placeholder="Description"
+              rows={2}
+              className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+            />
+          </label>
           <label className="flex items-center gap-2 text-sm font-semibold text-navy/80">
             <input type="checkbox" name="is_public" className="h-4 w-4" />
             Make public (visible to anyone on the public Resources page, no
@@ -214,12 +229,15 @@ export default async function AdminResourcesPage({
                       name="parent_id"
                       value={folderId ?? ""}
                     />
-                    <input
-                      name="name"
-                      defaultValue={f.name}
-                      required
-                      className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-                    />
+                    <label className="text-sm font-semibold text-navy">
+                      Folder name
+                      <input
+                        name="name"
+                        defaultValue={f.name}
+                        required
+                        className="mt-1 w-full font-normal text-navy rounded-lg border px-2 py-1 text-sm"
+                      />
+                    </label>
                     <button className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90">
                       Save
                     </button>
@@ -236,7 +254,7 @@ export default async function AdminResourcesPage({
                       name="parent_id"
                       value={folderId ?? ""}
                     />
-                    <p className="mb-2 text-xs text-navy/60">
+                    <p className="mb-2 text-xs text-navy/70">
                       Deletes everything inside this folder too. Sure?
                     </p>
                     <button className="rounded-full bg-pink px-4 py-1 text-xs font-bold text-white hover:opacity-90">
@@ -267,10 +285,10 @@ export default async function AdminResourcesPage({
                   </span>
                 )}
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-extrabold uppercase tracking-wide ${
                     r.is_public
                       ? "bg-teal/15 text-teal"
-                      : "bg-navy/10 text-navy/50"
+                      : "bg-navy/10 text-navy/70"
                   }`}
                 >
                   {r.is_public ? "Public" : "Private"}
@@ -312,12 +330,15 @@ export default async function AdminResourcesPage({
                 >
                   <input type="hidden" name="id" value={r.id} />
                   <input type="hidden" name="folder_id" value={folderId ?? ""} />
-                  <input
-                    name="title"
-                    defaultValue={r.title}
-                    required
-                    className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-                  />
+                  <label className="text-sm font-semibold text-navy">
+                    Document title
+                    <input
+                      name="title"
+                      defaultValue={r.title}
+                      required
+                      className="mt-1 w-full font-normal text-navy rounded-lg border px-2 py-1 text-sm"
+                    />
+                  </label>
                   <button className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90">
                     Save
                   </button>
@@ -334,7 +355,7 @@ export default async function AdminResourcesPage({
           </div>
         ))}
         {folderRows.length === 0 && withLinks.length === 0 && (
-          <p className="text-sm text-navy/50">
+          <p className="text-sm text-navy/70">
             This folder is empty — create a subfolder or upload a file above.
           </p>
         )}

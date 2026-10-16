@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import PhotoSlideshow from "@/components/PhotoSlideshow";
+import OurStory from "@/components/OurStory";
+import ShpeText from "@/components/ShpeText";
 import { createClient } from "@/lib/supabase/server";
 import type { HomeHighlightRow, SiteSettings, SlideshowPhotoRow } from "@/lib/types";
 
@@ -63,8 +65,12 @@ export default async function HomePage() {
   const heroImage = settings?.hero_image_url || "/images/hero-banner.jpg";
   const slidePhotos = dbPhotos.map((p) => ({
     src: p.image_url,
-    alt: p.caption ?? "SHPE LAMC photo",
+    alt: p.alt_text || p.caption || "SHPE LAMC chapter photo",
+    caption: p.caption,
   }));
+  const heroAlt =
+    settings?.hero_image_alt ||
+    "SHPE LAMC, Society of Hispanic Professional Engineers at Los Angeles Mission College. We are dedicated to empowering students to realize their potential in STEM fields through education, services, familia, and opportunities.";
 
   return (
     <div>
@@ -73,7 +79,7 @@ export default async function HomePage() {
         <div className="relative aspect-[2/1] w-full md:aspect-[16/7]">
           <Image
             src={heroImage}
-            alt="SHPE LAMC — Society of Hispanic Professional Engineers, LAMC STEM"
+            alt={heroAlt}
             fill
             priority
             className="object-cover"
@@ -81,22 +87,23 @@ export default async function HomePage() {
             unoptimized={heroImage.startsWith("http")}
           />
         </div>
-        <div className="stripe-bar h-2 w-full" />
-        <div className="mx-auto max-w-3xl px-4 py-4 text-center text-sm text-navy/70">
+        <div className="stripe-bar h-2 w-full" aria-hidden="true" />
+        <h1 className="sr-only">SHPE LAMC, Society of Hispanic Professional Engineers at Los Angeles Mission College</h1>
+        <p className="mx-auto max-w-3xl px-4 py-4 text-center text-base text-navy/80">
           {heroSubtitle}
-        </div>
+        </p>
         <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-3 px-4 pb-6">
           <Link
             href="/join"
             className="rounded-full bg-navy px-6 py-3 text-sm font-bold text-white shadow hover:opacity-90"
           >
-            Join SHPE LAMC
+            <ShpeText>Join SHPE LAMC</ShpeText>
           </Link>
           <Link
             href="/events"
             className="rounded-full border-2 border-navy px-6 py-3 text-sm font-bold text-navy hover:bg-navy/5"
           >
-            See Upcoming Events
+            See upcoming events
           </Link>
         </div>
       </section>
@@ -116,6 +123,9 @@ export default async function HomePage() {
         </p>
       </section>
 
+      {/* Our story */}
+      <OurStory settings={settings} />
+
       {/* Why join */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
         <h2 className="mb-6 text-center text-sm font-extrabold uppercase tracking-widest text-pink">
@@ -127,7 +137,7 @@ export default async function HomePage() {
               key={"id" in item ? item.id : i}
               className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
             >
-              <div className={`mb-3 h-2 w-10 rounded-full ${item.color ?? "bg-orange"}`} />
+              <div aria-hidden="true" className={`mb-3 h-2 w-10 rounded-full ${item.color ?? "bg-orange"}`} />
               <h3 className="mb-1 font-bold text-navy">{item.title}</h3>
               <p className="text-sm text-navy/70">{item.body}</p>
             </div>

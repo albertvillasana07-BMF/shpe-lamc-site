@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { notifyBoard } from "@/lib/notify";
 
 export async function signupMember(
   _prevState: { ok: boolean; error: string | null },
@@ -24,6 +25,14 @@ export async function signupMember(
   if (error) {
     return { ok: false, error: "Something went wrong — please try again." };
   }
+
+  await notifyBoard(`New member: ${full_name}`, [
+    "Someone just joined through the website.",
+    "",
+    `Name: ${full_name}`,
+    `Email: ${email}`,
+    `Student ID: ${student_id ?? "not given"}`,
+  ]);
 
   return { ok: true, error: null };
 }

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ScholarshipRow } from "@/lib/types";
+import { todayInLA } from "@/lib/dates";
 import { createScholarship, deleteScholarship, updateScholarship } from "./actions";
 
 export default async function AdminScholarshipsPage() {
@@ -10,6 +11,7 @@ export default async function AdminScholarshipsPage() {
     .order("deadline", { ascending: true });
 
   const rows = (scholarships ?? []) as ScholarshipRow[];
+  const today = todayInLA();
 
   return (
     <div>
@@ -19,33 +21,48 @@ export default async function AdminScholarshipsPage() {
         action={createScholarship}
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
       >
-        <input
-          name="title"
-          placeholder="Scholarship title"
-          required
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
-        <input
-          name="amount"
-          placeholder="Amount (e.g. $2,500)"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
-        <input
-          name="deadline"
-          type="date"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
-        <textarea
-          name="description"
-          placeholder="Description"
-          rows={3}
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
-        <input
-          name="link"
-          placeholder="Application link (URL)"
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Scholarship title (required)
+          <input
+            name="title"
+            placeholder="Scholarship title"
+            required
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Amount
+          <input
+            name="amount"
+            placeholder="Amount (e.g. $2,500)"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Deadline
+          <input
+            name="deadline"
+            type="date"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Description
+          <textarea
+            name="description"
+            placeholder="Description"
+            rows={3}
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Application link
+          <input
+            name="link"
+            placeholder="Application link (URL)"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Scholarship
         </button>
@@ -62,8 +79,13 @@ export default async function AdminScholarshipsPage() {
                 <p className="font-bold text-navy">
                   {s.title} {s.amount && <span className="text-xs text-teal">({s.amount})</span>}
                 </p>
-                <p className="text-sm text-navy/60">
+                <p className="text-sm text-navy/70">
                   {s.deadline ? `Deadline: ${s.deadline}` : "No deadline"}
+                  {s.deadline && s.deadline < today && (
+                    <span className="ml-2 rounded-full bg-navy/10 px-2 py-0.5 text-xs font-bold text-navy">
+                      Expired, hidden from the public page
+                    </span>
+                  )}
                 </p>
               </div>
             </summary>
@@ -73,36 +95,51 @@ export default async function AdminScholarshipsPage() {
               className="mt-4 grid gap-3 border-t border-black/5 pt-4 md:grid-cols-2"
             >
               <input type="hidden" name="id" value={s.id} />
-              <input
-                name="title"
-                defaultValue={s.title}
-                required
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
-              <input
-                name="amount"
-                defaultValue={s.amount ?? ""}
-                placeholder="Amount"
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
-              <input
-                name="deadline"
-                type="date"
-                defaultValue={s.deadline ?? ""}
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
-              <textarea
-                name="description"
-                defaultValue={s.description ?? ""}
-                rows={3}
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
-              <input
-                name="link"
-                defaultValue={s.link ?? ""}
-                placeholder="Application link"
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                Scholarship title (required)
+                <input
+                  name="title"
+                  defaultValue={s.title}
+                  required
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Amount
+                <input
+                  name="amount"
+                  defaultValue={s.amount ?? ""}
+                  placeholder="Amount"
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Deadline
+                <input
+                  name="deadline"
+                  type="date"
+                  defaultValue={s.deadline ?? ""}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                Description
+                <textarea
+                  name="description"
+                  defaultValue={s.description ?? ""}
+                  rows={3}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                Application link
+                <input
+                  name="link"
+                  defaultValue={s.link ?? ""}
+                  placeholder="Application link"
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
               <div className="flex gap-3 md:col-span-2">
                 <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90">
                   Save changes

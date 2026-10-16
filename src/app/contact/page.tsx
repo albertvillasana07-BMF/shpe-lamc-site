@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
 import BoardScrollList from "@/components/BoardScrollList";
 import { createClient } from "@/lib/supabase/server";
 import type { BoardMemberRow, SiteSettings } from "@/lib/types";
+
+export const metadata: Metadata = { title: "Contact" };
 
 export default async function ContactPage() {
   const supabase = await createClient();
@@ -33,7 +36,13 @@ export default async function ContactPage() {
                 Email
               </dt>
               <dd className="mt-1 text-xl font-semibold text-navy">
-                {settings?.chapter_email ?? "[chapter email]"}
+                {settings?.chapter_email ? (
+                  <a href={`mailto:${settings.chapter_email}`} className="underline underline-offset-4 hover:text-orange">
+                    {settings.chapter_email}
+                  </a>
+                ) : (
+                  "[chapter email]"
+                )}
               </dd>
             </div>
             <div>
@@ -41,7 +50,19 @@ export default async function ContactPage() {
                 Instagram
               </dt>
               <dd className="mt-1 text-xl font-semibold text-navy">
-                {settings?.instagram_handle ?? "[@handle]"}
+                {settings?.instagram_handle ? (
+                  <a
+                    href={`https://instagram.com/${settings.instagram_handle.replace(/^@/, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4 hover:text-orange"
+                  >
+                    {settings.instagram_handle}
+                    <span className="sr-only"> on Instagram (opens in a new tab)</span>
+                  </a>
+                ) : (
+                  "[@handle]"
+                )}
               </dd>
             </div>
             <div>

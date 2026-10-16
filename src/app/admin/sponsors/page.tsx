@@ -20,28 +20,37 @@ export default async function AdminSponsorsPage() {
         action={createSponsor}
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
       >
-        <input
-          name="name"
-          placeholder="Company name"
-          required
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
-        <select
-          name="tier"
-          defaultValue=""
-          className="rounded-lg border border-black/10 px-3 py-2"
-        >
-          <option value="">No tier</option>
-          <option value="Diamond">Diamond</option>
-          <option value="Platinum">Platinum</option>
-          <option value="Gold">Gold</option>
-          <option value="Silver">Silver</option>
-        </select>
-        <input
-          name="website_url"
-          placeholder="Website URL"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Company name (required)
+          <input
+            name="name"
+            placeholder="Company name"
+            required
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Sponsor tier
+          <select
+            name="tier"
+            defaultValue=""
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          >
+            <option value="">No tier</option>
+            <option value="Diamond">Diamond</option>
+            <option value="Platinum">Platinum</option>
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Website URL
+          <input
+            name="website_url"
+            placeholder="Website URL"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
         <div className="md:col-span-2">
           <ImageUploadField name="logo_url" label="Sponsor logo" folder="sponsors" aspect={16 / 9} />
         </div>
@@ -61,7 +70,7 @@ export default async function AdminSponsorsPage() {
                 {s.name} {s.tier && <span className="text-xs text-teal">({s.tier})</span>}
               </p>
               {s.website_url && (
-                <p className="text-sm text-navy/60">{s.website_url}</p>
+                <p className="text-sm text-navy/70">{s.website_url}</p>
               )}
             </div>
             <form action={deleteSponsor}>

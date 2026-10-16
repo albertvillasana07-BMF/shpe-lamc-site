@@ -18,7 +18,7 @@ export default async function AdminHomeHighlightsPage() {
       <h1 className="mb-2 text-2xl font-extrabold text-navy">
         Homepage &quot;Why Join&quot; Cards
       </h1>
-      <p className="mb-6 text-sm text-navy/60">
+      <p className="mb-6 text-sm text-navy/70">
         These are the highlight cards shown on the homepage. If you don&apos;t
         add any, the homepage falls back to its default set.
       </p>
@@ -27,35 +27,47 @@ export default async function AdminHomeHighlightsPage() {
         action={createHighlight}
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
       >
-        <input
-          name="title"
-          placeholder="Card title (e.g. Scholarships)"
-          required
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
-        <textarea
-          name="body"
-          placeholder="Short description"
-          rows={2}
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
-        <select
-          name="color"
-          defaultValue="bg-orange"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        >
-          {COLOR_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c.replace("bg-", "")}
-            </option>
-          ))}
-        </select>
-        <input
-          name="sort_order"
-          type="number"
-          placeholder="Order (0 = first)"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Card title (required)
+          <input
+            name="title"
+            placeholder="Card title (e.g. Scholarships)"
+            required
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          Short description
+          <textarea
+            name="body"
+            placeholder="Short description"
+            rows={2}
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Accent color
+          <select
+            name="color"
+            defaultValue="bg-orange"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          >
+            {COLOR_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c.replace("bg-", "")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Display order (0 shows first)
+          <input
+            name="sort_order"
+            type="number"
+            placeholder="Order (0 = first)"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Card
         </button>
@@ -76,35 +88,47 @@ export default async function AdminHomeHighlightsPage() {
               className="mt-4 grid gap-3 border-t border-black/5 pt-4 md:grid-cols-2"
             >
               <input type="hidden" name="id" value={h.id} />
-              <input
-                name="title"
-                defaultValue={h.title}
-                required
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
-              <textarea
-                name="body"
-                defaultValue={h.body ?? ""}
-                rows={2}
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
-              <select
-                name="color"
-                defaultValue={h.color ?? "bg-orange"}
-                className="rounded-lg border border-black/10 px-3 py-2"
-              >
-                {COLOR_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c.replace("bg-", "")}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="sort_order"
-                type="number"
-                defaultValue={h.sort_order}
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                Card title (required)
+                <input
+                  name="title"
+                  defaultValue={h.title}
+                  required
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                Short description
+                <textarea
+                  name="body"
+                  defaultValue={h.body ?? ""}
+                  rows={2}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Accent color
+                <select
+                  name="color"
+                  defaultValue={h.color ?? "bg-orange"}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                >
+                  {COLOR_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace("bg-", "")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Display order (0 shows first)
+                <input
+                  name="sort_order"
+                  type="number"
+                  defaultValue={h.sort_order}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
               <div className="flex gap-3 md:col-span-2">
                 <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90">
                   Save changes

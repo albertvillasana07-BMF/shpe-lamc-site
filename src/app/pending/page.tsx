@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { signout } from "@/app/signout/actions";
+
+export const metadata: Metadata = { title: "Waiting on Approval" };
 
 export default async function PendingPage() {
   const supabase = await createClient();

@@ -8,11 +8,12 @@ const links = [
   { href: "/admin/board", label: "Board" },
   { href: "/admin/home-highlights", label: "Homepage" },
   { href: "/admin/slideshow", label: "Slideshow" },
-  { href: "/admin/settings", label: "Contact Info" },
+  { href: "/admin/settings", label: "Site Content" },
   { href: "/admin/resources", label: "Resources" },
   { href: "/admin/sponsors", label: "Sponsors" },
   { href: "/admin/sponsor-inquiries", label: "Sponsor Inquiries" },
   { href: "/admin/scholarships", label: "Scholarships" },
+  { href: "/admin/guide", label: "How-To Guide" },
 ];
 
 export default function AdminNav({
@@ -23,7 +24,7 @@ export default function AdminNav({
   fullName: string | null;
 }) {
   return (
-    <div className="border-b border-black/5 bg-white">
+    <nav aria-label="Admin" className="border-b border-black/5 bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
         <div className="flex flex-wrap items-center gap-4">
           {links.map((l) => (
@@ -45,16 +46,16 @@ export default function AdminNav({
           )}
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-navy/60">
+          <span className="text-navy/70">
             {fullName ?? "Board member"} {isOwner && "· Owner"}
           </span>
           <form action={signout}>
-            <button className="font-bold text-navy/50 hover:text-navy">
+            <button className="font-bold text-navy/70 hover:text-navy">
               Sign Out
             </button>
           </form>
         </div>
       </div>
-    </div>
+    </nav>
   );
 }

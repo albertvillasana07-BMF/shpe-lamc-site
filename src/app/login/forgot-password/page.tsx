@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { requestPasswordReset } from "./actions";
+
+export const metadata: Metadata = { title: "Reset Password" };
 
 export default async function ForgotPasswordPage({
   searchParams,
@@ -51,7 +54,7 @@ export default async function ForgotPasswordPage({
             >
               Send reset link
             </button>
-            <p className="text-center text-sm text-navy/60">
+            <p className="text-center text-sm text-navy/70">
               <Link href="/login" className="font-bold text-teal">
                 Back to login
               </Link>

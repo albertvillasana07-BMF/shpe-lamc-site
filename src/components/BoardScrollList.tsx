@@ -5,14 +5,16 @@ import type { BoardMemberRow } from "@/lib/types";
 
 export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     function update() {
-      if (!container) return;
+      if (!container || reduceMotion) return;
       const mid = container.scrollTop + container.clientHeight / 2;
       cardRefs.current.forEach((card) => {
         if (!card) return;
@@ -34,11 +36,15 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
   return (
     <div
       ref={containerRef}
-      className="flex max-h-[80vh] flex-col gap-5 overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
+      role="region"
+      aria-label="Board members, scrollable list"
+      tabIndex={0}
+      className="max-h-[80vh] overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
       style={{ scrollSnapType: "y proximity" }}
     >
+      <ul className="flex flex-col gap-5">
       {rows.map((m, i) => (
-        <div
+        <li
           key={m.id}
           ref={(el) => {
             cardRefs.current[i] = el;
@@ -51,12 +57,12 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={m.headshot_url}
-                alt={m.full_name}
+                alt={`Headshot of ${m.full_name}`}
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-navy/30">
-                <svg width="40" height="40" fill="none" viewBox="0 0 24 24">
+              <div className="flex h-full w-full items-center justify-center text-navy/70">
+                <svg width="40" height="40" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
                   <path
                     d="M4 20c0-4 4-6 8-6s8 2 8 6"
@@ -68,17 +74,21 @@ export default function BoardScrollList({ rows }: { rows: BoardMemberRow[] }) {
             )}
           </div>
           <div className="flex flex-col justify-center">
-            <p className="text-lg text-orange">{m.full_name}</p>
+            <h3 className="text-lg text-orange">{m.full_name}</h3>
             {m.role && <p className="text-base font-semibold text-navy">{m.role}</p>}
             {m.about_me && (
               <p className="mt-1 text-sm leading-snug text-navy/70">{m.about_me}</p>
             )}
             {m.linkedin_url && (
-              <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs font-bold text-orange">LinkedIn →</a>
+              <a href={m.linkedin_url} target="_blank" rel="noopener noreferrer" className="mt-2 text-sm font-bold text-orange underline-offset-2 hover:underline">
+                LinkedIn<span className="sr-only"> profile for {m.full_name} (opens in a new tab)</span>
+                <span aria-hidden="true"> →</span>
+              </a>
             )}
           </div>
-        </div>
+        </li>
       ))}
+      </ul>
     </div>
   );
 }

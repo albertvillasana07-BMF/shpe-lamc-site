@@ -11,6 +11,7 @@ export async function addSlideshowPhoto(formData: FormData) {
   await supabase.from("slideshow_photos").insert({
     image_url,
     caption: String(formData.get("caption") ?? "").trim() || null,
+    alt_text: String(formData.get("alt_text") ?? "").trim() || null,
     sort_order: Number(formData.get("sort_order") ?? 0) || 0,
   });
 

@@ -1,14 +1,26 @@
 @import "tailwindcss";
 
+/*
+  SHPE LAMC colors.
+  Every text/background pair used on the site meets WCAG 2.1 AA contrast
+  (4.5:1 for normal text, 3:1 for large text and control borders).
+  - navy is SHPE's official navy.
+  - orange is a darker SHPE orange so white text on it, and orange text on
+    white, both pass. orange-bright is the logo orange, only used on navy.
+  - teal is darkened for the same reason.
+*/
 :root {
   --background: #ffffff;
-  --foreground: #12253f;
-  --navy: #0f2340;
-  --navy-light: #1c3a5e;
-  --orange: #ff6a13;
+  --foreground: #001f5b;
+  --navy: #001f5b;
+  --navy-light: #0d2c6b;
+  --orange: #c2410c;
+  --orange-bright: #fd652f;
+  --red: #d33a02;
   --pink: #b3186a;
   --gold: #ffd166;
-  --teal: #17b8a6;
+  --teal: #0f766e;
+  --field-border: #6b7a99;
 }
 
 @theme inline {
@@ -17,33 +29,98 @@
   --color-navy: var(--navy);
   --color-navy-light: var(--navy-light);
   --color-orange: var(--orange);
+  --color-orange-bright: var(--orange-bright);
+  --color-red: var(--red);
   --color-pink: var(--pink);
   --color-gold: var(--gold);
   --color-teal: var(--teal);
- --font-heading: Georgia, serif;
+  --font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-shpe: "Archivo", "Arial Narrow", Arial, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
 
 h1, h2, h3, h4,
 .font-heading {
   font-family: var(--font-heading);
-  font-weight: 500;
+  font-weight: 700;
+}
+
+/* The word "SHPE" in headings and buttons, styled like the SHPE wordmark */
+.font-shpe {
+  font-family: var(--font-shpe);
+  font-weight: 900;
+  font-stretch: 85%;
+  letter-spacing: -0.01em;
 }
 
 .gradient-header {
-  background: linear-gradient(120deg, #ff6a13 0%, #ff3d5e 48%, #b3186a 100%);
+  background: linear-gradient(120deg, #c2410c 0%, #b42b3f 50%, #a3195b 100%);
 }
 
 .stripe-bar {
   background: repeating-linear-gradient(
     90deg,
-    #12253f 0 24px,
+    #001f5b 0 24px,
     #ffd166 24px 48px,
-    #17b8a6 48px 72px
+    #0f766e 48px 72px
   );
+}
+
+/* ---------- Accessibility ---------- */
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.on-dark :focus-visible,
+.on-dark:focus-visible {
+  outline-color: var(--gold);
+}
+
+/* Form fields need a border with at least 3:1 contrast */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]),
+select,
+textarea {
+  border-color: var(--field-border);
+}
+::placeholder {
+  color: #4d5b7c;
+  opacity: 1;
+}
+
+/* Skip link: hidden until a keyboard user tabs to it */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 700;
+  padding: 0.75rem 1.25rem;
+  border-radius: 9999px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Respect people who turn on "reduce motion" in their device settings */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

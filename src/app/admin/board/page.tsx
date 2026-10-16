@@ -20,35 +20,50 @@ export default async function AdminBoardPage() {
         action={createBoardMember}
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
       >
-        <input
-          name="full_name"
-          placeholder="Full name"
-          required
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
-        <input
-          name="role"
-          placeholder="Role (e.g. President)"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
-        <textarea
-          name="about_me"
-          placeholder="About me"
-          rows={2}
-          className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-        />
+        <label className="text-sm font-semibold text-navy">
+          Full name (required)
+          <input
+            name="full_name"
+            placeholder="Full name"
+            required
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Role
+          <input
+            name="role"
+            placeholder="Role (e.g. President)"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy md:col-span-2">
+          About me
+          <textarea
+            name="about_me"
+            placeholder="About me"
+            rows={2}
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
         <ImageUploadField name="headshot_url" label="Headshot" folder="board" aspect={3 / 4} />
-        <input
-          name="linkedin_url"
-          placeholder="LinkedIn URL"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
-        <input
-          name="sort_order"
-          type="number"
-          placeholder="Order (0 = first)"
-          className="rounded-lg border border-black/10 px-3 py-2"
-        />
+        <label className="text-sm font-semibold text-navy">
+          LinkedIn URL
+          <input
+            name="linkedin_url"
+            placeholder="LinkedIn URL"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
+        <label className="text-sm font-semibold text-navy">
+          Display order (0 shows first)
+          <input
+            name="sort_order"
+            type="number"
+            placeholder="Order (0 = first)"
+            className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+          />
+        </label>
         <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
           Add Board Member
         </button>
@@ -63,7 +78,7 @@ export default async function AdminBoardPage() {
             <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-bold text-navy">{m.full_name}</p>
-                <p className="text-sm text-navy/60">{m.role ?? "No role set"}</p>
+                <p className="text-sm text-navy/70">{m.role ?? "No role set"}</p>
               </div>
             </summary>
 
@@ -72,24 +87,33 @@ export default async function AdminBoardPage() {
               className="mt-4 grid gap-3 border-t border-black/5 pt-4 md:grid-cols-2"
             >
               <input type="hidden" name="id" value={m.id} />
-              <input
-                name="full_name"
-                defaultValue={m.full_name}
-                required
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
-              <input
-                name="role"
-                defaultValue={m.role ?? ""}
-                placeholder="Role"
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
-              <textarea
-                name="about_me"
-                defaultValue={m.about_me ?? ""}
-                rows={2}
-                className="rounded-lg border border-black/10 px-3 py-2 md:col-span-2"
-              />
+              <label className="text-sm font-semibold text-navy">
+                Full name (required)
+                <input
+                  name="full_name"
+                  defaultValue={m.full_name}
+                  required
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Role
+                <input
+                  name="role"
+                  defaultValue={m.role ?? ""}
+                  placeholder="Role"
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy md:col-span-2">
+                About me
+                <textarea
+                  name="about_me"
+                  defaultValue={m.about_me ?? ""}
+                  rows={2}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
               <ImageUploadField
                 name="headshot_url"
                 label="Headshot"
@@ -97,18 +121,24 @@ export default async function AdminBoardPage() {
                 defaultValue={m.headshot_url}
                 aspect={3 / 4}
               />
-              <input
-                name="linkedin_url"
-                defaultValue={m.linkedin_url ?? ""}
-                placeholder="LinkedIn URL"
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
-              <input
-                name="sort_order"
-                type="number"
-                defaultValue={m.sort_order}
-                className="rounded-lg border border-black/10 px-3 py-2"
-              />
+              <label className="text-sm font-semibold text-navy">
+                LinkedIn URL
+                <input
+                  name="linkedin_url"
+                  defaultValue={m.linkedin_url ?? ""}
+                  placeholder="LinkedIn URL"
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-semibold text-navy">
+                Display order (0 shows first)
+                <input
+                  name="sort_order"
+                  type="number"
+                  defaultValue={m.sort_order}
+                  className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
+                />
+              </label>
               <div className="flex gap-3 md:col-span-2">
                 <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90">
                   Save changes

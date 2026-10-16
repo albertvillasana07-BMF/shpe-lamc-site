@@ -13,12 +13,12 @@ export default async function AdminSponsorInquiriesPage() {
   return (
     <div>
       <h1 className="mb-2 text-2xl font-extrabold text-navy">Sponsor Inquiries</h1>
-      <p className="mb-6 text-sm text-navy/60">
+      <p className="mb-6 text-sm text-navy/70">
         Organizations that signed up through the &quot;Become a Sponsor&quot; page.
       </p>
 
       {rows.length === 0 ? (
-        <p className="text-navy/60">No inquiries yet.</p>
+        <p className="text-navy/70">No inquiries yet.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((r) => (
@@ -27,8 +27,8 @@ export default async function AdminSponsorInquiriesPage() {
               <p className="text-sm text-navy/70">
                 {r.contact_name} · {r.email} {r.phone ? `· ${r.phone}` : ""}
               </p>
-              {r.message && <p className="mt-2 text-sm text-navy/60">{r.message}</p>}
-              <p className="mt-2 text-xs text-navy/40">
+              {r.message && <p className="mt-2 text-sm text-navy/70">{r.message}</p>}
+              <p className="mt-2 text-xs text-navy/70">
                 {new Date(r.created_at).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",

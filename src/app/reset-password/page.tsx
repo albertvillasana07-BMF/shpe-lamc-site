@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { updatePassword } from "./actions";
+
+export const metadata: Metadata = { title: "Set a New Password" };
 
 export default async function ResetPasswordPage({
   searchParams,

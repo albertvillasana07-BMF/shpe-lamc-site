@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { login } from "./actions";
+
+export const metadata: Metadata = { title: "Board Login" };
 
 export default async function LoginPage({
   searchParams,
@@ -45,7 +48,7 @@ export default async function LoginPage({
           >
             Sign In
           </button>
-          <p className="text-center text-sm text-navy/60">
+          <p className="text-center text-sm text-navy/70">
             New board member?{" "}
             <Link href="/signup" className="font-bold text-teal">
               Create an account

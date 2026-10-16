@@ -14,14 +14,16 @@ function formatDeadline(deadline: string | null) {
 
 export default function ScholarshipScrollList({ rows }: { rows: ScholarshipRow[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     function update() {
-      if (!container) return;
+      if (!container || reduceMotion) return;
       const mid = container.scrollTop + container.clientHeight / 2;
       cardRefs.current.forEach((card) => {
         if (!card) return;
@@ -43,11 +45,15 @@ export default function ScholarshipScrollList({ rows }: { rows: ScholarshipRow[]
   return (
     <div
       ref={containerRef}
-      className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
+      role="region"
+      aria-label="Scholarships, scrollable list"
+      tabIndex={0}
+      className="max-h-[70vh] overflow-y-auto rounded-2xl bg-navy/5 p-6 py-16"
       style={{ scrollSnapType: "y proximity" }}
     >
+      <ul className="flex flex-col gap-4">
       {rows.map((s, i) => (
-        <div
+        <li
           key={s.id}
           ref={(el) => {
             cardRefs.current[i] = el;
@@ -65,22 +71,25 @@ export default function ScholarshipScrollList({ rows }: { rows: ScholarshipRow[]
             <p className="mt-2 text-sm text-navy/80">{s.description}</p>
           )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-navy/50">
-              📅 {formatDeadline(s.deadline)}
+            <span className="text-sm font-semibold text-navy/80">
+              <span aria-hidden="true">📅 </span>
+              {formatDeadline(s.deadline)}
             </span>
             {s.link && (
               <a
                 href={s.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-bold text-orange"
+                className="text-sm font-bold text-orange underline-offset-2 hover:underline"
               >
-                Apply →
+                Apply<span className="sr-only"> for {s.title} (opens in a new tab)</span>
+                <span aria-hidden="true"> →</span>
               </a>
             )}
           </div>
-        </div>
+        </li>
       ))}
+      </ul>
     </div>
   );
 }

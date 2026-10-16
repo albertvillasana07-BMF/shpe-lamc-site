@@ -18,6 +18,7 @@ export type EventRow = {
   created_at: string;
   image_url: string | null;
   bg_color: string | null;
+  link_url: string | null;
 };
 
 export type ResourceRow = {
@@ -86,6 +87,21 @@ export type SiteSettings = {
   about_us: string | null;
   hero_image_url: string | null;
   join_image_url: string | null;
+  hero_image_alt: string | null;
+  join_image_alt: string | null;
+  story_text: string | null;
+  founder_image_url: string | null;
+  founder_image_alt: string | null;
+  builder_text: string | null;
+  builder_image_url: string | null;
+  builder_image_alt: string | null;
+  builder_signature: string | null;
+  mos_text: string | null;
+  mos_image_url: string | null;
+  mos_image_alt: string | null;
+  sis_text: string | null;
+  sis_image_url: string | null;
+  sis_image_alt: string | null;
 };
 
 export type BoardMemberRow = {
@@ -112,6 +128,19 @@ export type SlideshowPhotoRow = {
   id: string;
   image_url: string;
   caption: string | null;
+  alt_text: string | null;
   sort_order: number;
   created_at: string;
+};
+
+export type EventSuggestionRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  event_time: string | null;
+  location: string | null;
+  source_url: string;
+  status: "pending" | "approved" | "dismissed";
+  found_at: string;
 };

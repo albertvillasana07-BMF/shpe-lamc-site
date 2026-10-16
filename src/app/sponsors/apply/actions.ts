@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { notifyBoard } from "@/lib/notify";
 
 export async function submitSponsorInquiry(
   _prevState: { ok: boolean; error: string | null },
@@ -28,6 +29,17 @@ export async function submitSponsorInquiry(
   if (error) {
     return { ok: false, error: "Something went wrong — please try again." };
   }
+
+  await notifyBoard(`Sponsor inquiry from ${organization}`, [
+    "A company filled out the Become a Sponsor form.",
+    "",
+    `Organization: ${organization}`,
+    `Contact: ${contact_name}`,
+    `Email: ${email}`,
+    `Phone: ${phone ?? "not given"}`,
+    "",
+    `Message: ${message ?? "(none)"}`,
+  ]);
 
   return { ok: true, error: null };
 }

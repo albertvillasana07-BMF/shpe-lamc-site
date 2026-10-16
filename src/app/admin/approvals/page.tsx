@@ -29,7 +29,7 @@ export default async function ApprovalsPage() {
   return (
     <div>
       <h1 className="mb-2 text-2xl font-extrabold text-navy">Approvals</h1>
-      <p className="mb-6 text-sm text-navy/60">
+      <p className="mb-6 text-sm text-navy/70">
         &quot;Make Owner&quot; hands full ownership to that admin and steps you
         down to a regular admin — use this when you graduate or hand off the
         chapter to the next president.
@@ -40,7 +40,7 @@ export default async function ApprovalsPage() {
       </h2>
       <div className="mb-10 flex flex-col gap-3">
         {pending.length === 0 && (
-          <p className="text-sm text-navy/50">No one is waiting on approval.</p>
+          <p className="text-sm text-navy/70">No one is waiting on approval.</p>
         )}
         {pending.map((p) => (
           <div
@@ -49,7 +49,7 @@ export default async function ApprovalsPage() {
           >
             <div>
               <p className="font-bold text-navy">{p.full_name ?? "(no name)"}</p>
-              <p className="text-sm text-navy/60">{p.email}</p>
+              <p className="text-sm text-navy/70">{p.email}</p>
             </div>
             <form action={approveUser}>
               <input type="hidden" name="id" value={p.id} />
@@ -78,7 +78,7 @@ export default async function ApprovalsPage() {
                   </span>
                 )}
               </p>
-              <p className="text-sm text-navy/60">{p.email}</p>
+              <p className="text-sm text-navy/70">{p.email}</p>
             </div>
             {!p.is_owner && (
               <div className="flex flex-wrap gap-2">

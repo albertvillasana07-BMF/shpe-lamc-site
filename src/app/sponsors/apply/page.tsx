@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import PageHeader from "@/components/PageHeader";
 import SponsorApplyForm from "./SponsorApplyForm";
+
+export const metadata: Metadata = { title: "Become a Sponsor" };
 
 export default function SponsorApplyPage() {
   return (

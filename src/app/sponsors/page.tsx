@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
@@ -13,28 +14,36 @@ const TIER_STYLES: Record<string, { cols: string; logoHeight: string }> = {
 };
 
 function SponsorLogo({ s, heightClass }: { s: SponsorRow; heightClass: string }) {
-  return (
-    <a
-      key={s.id}
-      href={s.website_url ?? undefined}
-      target={s.website_url ? "_blank" : undefined}
-      rel="noopener noreferrer"
-      className="flex flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm"
-    >
+  const inner = (
+    <>
       {s.logo_url ? (
+        // The name is printed right below, so the logo itself is decorative
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={s.logo_url} alt={s.name} className={`${heightClass} w-full object-contain`} />
+        <img src={s.logo_url} alt="" className={`${heightClass} w-full object-contain`} />
       ) : (
         <div
+          aria-hidden="true"
           className={`flex ${heightClass} w-full items-center justify-center rounded bg-navy/5 font-bold text-navy`}
         >
           {s.name}
         </div>
       )}
-      <p className="text-sm font-bold text-navy">{s.name}</p>
+      <span className="text-sm font-bold text-navy">{s.name}</span>
+    </>
+  );
+  const cls =
+    "flex flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm";
+
+  if (!s.website_url) return <div className={cls}>{inner}</div>;
+  return (
+    <a href={s.website_url} target="_blank" rel="noopener noreferrer" className={`${cls} hover:border-orange`}>
+      {inner}
+      <span className="sr-only"> website (opens in a new tab)</span>
     </a>
   );
 }
+
+export const metadata: Metadata = { title: "Sponsors" };
 
 export default async function SponsorsPage() {
   const supabase = await createClient();
@@ -58,7 +67,7 @@ export default async function SponsorsPage() {
       />
       <div className="mx-auto max-w-5xl px-4 py-12">
         {rows.length === 0 ? (
-          <p className="text-navy/60">
+          <p className="text-navy/70">
             We&apos;re building our sponsor list for this year — interested in
             supporting SHPE LAMC? See below.
           </p>
@@ -66,9 +75,9 @@ export default async function SponsorsPage() {
           <div className="flex flex-col gap-10">
             {tiered.map(({ tier, sponsors: group }) => (
               <div key={tier}>
-                <p className="mb-3 text-xs font-extrabold uppercase tracking-widest text-pink">
+                <h2 className="mb-3 text-sm font-extrabold uppercase tracking-widest text-pink">
                   {tier}
-                </p>
+                </h2>
                 <div className={`grid gap-4 ${TIER_STYLES[tier].cols}`}>
                   {group.map((s) => (
                     <SponsorLogo key={s.id} s={s} heightClass={TIER_STYLES[tier].logoHeight} />
@@ -80,9 +89,9 @@ export default async function SponsorsPage() {
             {untiered.length > 0 && (
               <div>
                 {tiered.length > 0 && (
-                  <p className="mb-3 text-xs font-extrabold uppercase tracking-widest text-pink">
+                  <h2 className="mb-3 text-sm font-extrabold uppercase tracking-widest text-pink">
                     Supporters
-                  </p>
+                  </h2>
                 )}
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {untiered.map((s) => (
@@ -96,12 +105,12 @@ export default async function SponsorsPage() {
 
         <div className="mt-12 rounded-2xl border border-black/5 bg-white p-8 text-center shadow-sm">
           <h2 className="mb-2 text-xl">Interested in becoming a sponsor?</h2>
-          <p className="mb-5 text-sm text-navy/70">
+          <p className="mb-5 text-sm text-navy/80">
             Partner with SHPE LAMC and support the next generation of engineers.
           </p>
           <Link
             href="/sponsors/apply"
-            className="rounded-full bg-orange px-8 py-3 text-sm font-bold text-white shadow hover:opacity-90"
+            className="inline-block rounded-full bg-orange px-8 py-3 text-sm font-bold text-white shadow hover:opacity-90"
           >
             Sign Up as a Sponsor
           </Link>
