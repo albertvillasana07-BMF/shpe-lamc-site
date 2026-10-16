@@ -10,6 +10,7 @@ import {
   toggleResourcePublic,
   uploadResource,
 } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 async function getBreadcrumbs(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -140,9 +141,9 @@ export default async function AdminResourcesPage({
               className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
             />
           </label>
-          <button className="w-fit rounded-full bg-teal px-6 py-2 text-sm font-bold text-white hover:opacity-90">
-            Create Folder
-          </button>
+          <SubmitButton className="w-fit rounded-full bg-teal px-6 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Creating…" doneText="✓ Created">
+Create Folder
+</SubmitButton>
         </form>
 
         <form
@@ -194,9 +195,9 @@ export default async function AdminResourcesPage({
             Make public (visible to anyone on the public Resources page, no
             login required)
           </label>
-          <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90">
-            Upload
-          </button>
+          <SubmitButton className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Uploading…" doneText="✓ Uploaded">
+Upload
+</SubmitButton>
         </form>
       </div>
 
@@ -238,9 +239,9 @@ export default async function AdminResourcesPage({
                         className="mt-1 w-full font-normal text-navy rounded-lg border px-2 py-1 text-sm"
                       />
                     </label>
-                    <button className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90">
-                      Save
-                    </button>
+                    <SubmitButton className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90" pendingText="Saving…" doneText="✓ Saved">
+Save
+</SubmitButton>
                   </form>
                 </details>
                 <details>
@@ -339,9 +340,9 @@ export default async function AdminResourcesPage({
                       className="mt-1 w-full font-normal text-navy rounded-lg border px-2 py-1 text-sm"
                     />
                   </label>
-                  <button className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90">
-                    Save
-                  </button>
+                  <SubmitButton className="rounded-full bg-teal px-4 py-1 text-xs font-bold text-white hover:opacity-90" pendingText="Saving…" doneText="✓ Saved">
+Save
+</SubmitButton>
                 </form>
               </details>
               <form action={deleteResource}>

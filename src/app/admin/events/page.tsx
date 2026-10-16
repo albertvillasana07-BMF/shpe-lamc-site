@@ -9,6 +9,7 @@ import {
   dismissSuggestion,
   updateEvent,
 } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 const input = "mt-1 w-full rounded-lg border px-3 py-2 font-normal text-navy";
 const label = "text-sm font-semibold text-navy";
@@ -97,7 +98,7 @@ export default async function AdminEventsPage() {
           Suggested from LAMC ({pending.length})
         </h2>
         <p className="mb-4 mt-1 text-sm text-navy/80">
-          Every Monday the site checks lamission.edu for STEM-related events.
+          Every Monday the site checks lamc.edu for STEM-related events.
           Nothing goes live until a board member approves it. Edit anything
           before approving.
         </p>
@@ -133,16 +134,16 @@ export default async function AdminEventsPage() {
                       }}
                     />
                     <div className="flex flex-wrap items-center gap-4 md:col-span-2">
-                      <button className="rounded-full bg-teal px-6 py-2 text-sm font-bold text-white hover:opacity-90">
-                        Approve and post
-                      </button>
+                      <SubmitButton className="rounded-full bg-teal px-6 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Posting…" doneText="✓ Posted">
+Approve and post
+</SubmitButton>
                       <a
                         href={s.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm font-semibold text-navy underline underline-offset-2"
                       >
-                        View on lamission.edu<span className="sr-only"> (opens in a new tab)</span>
+                        View on lamc.edu<span className="sr-only"> (opens in a new tab)</span>
                       </a>
                     </div>
                   </form>
@@ -165,9 +166,9 @@ export default async function AdminEventsPage() {
         className="mb-8 grid gap-3 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
       >
         <EventFields idPrefix="new" />
-        <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
-          Add event
-        </button>
+        <SubmitButton className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2" pendingText="Adding…" doneText="✓ Added">
+Add event
+</SubmitButton>
       </form>
 
       <h2 className="mb-3 text-lg text-navy">Posted events</h2>
@@ -189,9 +190,9 @@ export default async function AdminEventsPage() {
               >
                 <input type="hidden" name="id" value={e.id} />
                 <EventFields e={e} idPrefix={e.id} />
-                <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
-                  Save changes
-                </button>
+                <SubmitButton className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2" pendingText="Saving…" doneText="✓ Saved">
+Save changes
+</SubmitButton>
               </form>
             </details>
 

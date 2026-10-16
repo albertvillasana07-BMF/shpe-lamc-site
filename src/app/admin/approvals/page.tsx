@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { approveUser, removeAdmin, transferOwnership } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export default async function ApprovalsPage() {
   const supabase = await createClient();
@@ -53,9 +54,9 @@ export default async function ApprovalsPage() {
             </div>
             <form action={approveUser}>
               <input type="hidden" name="id" value={p.id} />
-              <button className="rounded-full bg-teal px-5 py-2 text-sm font-bold text-white hover:opacity-90">
-                Approve as Admin
-              </button>
+              <SubmitButton className="rounded-full bg-teal px-5 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Approving…" doneText="✓ Approved">
+Approve as Admin
+</SubmitButton>
             </form>
           </div>
         ))}

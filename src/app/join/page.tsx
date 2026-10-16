@@ -26,7 +26,7 @@ export default async function JoinPage() {
     <div>
       <PageHeader
         title="Join SHPE LAMC"
-        subtitle="Sign up in a minute. No QR codes, just fill it out below."
+        subtitle="Join our community of future engineers and be part of something bigger than yourself."
       />
       <div className="mx-auto max-w-4xl px-4 py-12">
         <div className="grid overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm md:grid-cols-2">

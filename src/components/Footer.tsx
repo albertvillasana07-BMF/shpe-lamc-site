@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DisciplineBar from "@/components/DisciplineBar";
+import SecretGame from "@/components/SecretGame";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { SiteSettings } from "@/lib/types";
 
@@ -17,7 +18,10 @@ export default async function Footer() {
 
   return (
     <footer className="mt-16">
-      <DisciplineBar size="sm" />
+      {/* Psst: the discipline bar is secretly a button that opens a mini game */}
+      <SecretGame>
+        <DisciplineBar size="sm" />
+      </SecretGame>
       <div className="on-dark bg-navy px-4 py-8 text-white">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SponsorRow } from "@/lib/types";
 import ImageUploadField from "@/components/ImageUploadField";
 import { createSponsor, deleteSponsor } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export default async function AdminSponsorsPage() {
   const supabase = await createClient();
@@ -54,9 +55,9 @@ export default async function AdminSponsorsPage() {
         <div className="md:col-span-2">
           <ImageUploadField name="logo_url" label="Sponsor logo" folder="sponsors" aspect={16 / 9} />
         </div>
-        <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
-          Add Sponsor
-        </button>
+        <SubmitButton className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2" pendingText="Adding…" doneText="✓ Added">
+Add Sponsor
+</SubmitButton>
       </form>
 
       <div className="flex flex-col gap-3">

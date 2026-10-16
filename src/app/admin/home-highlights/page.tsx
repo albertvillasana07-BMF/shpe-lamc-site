@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { HomeHighlightRow } from "@/lib/types";
 import { createHighlight, deleteHighlight, updateHighlight } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 const COLOR_OPTIONS = ["bg-orange", "bg-teal", "bg-pink", "bg-navy", "bg-gold"];
 
@@ -68,9 +69,9 @@ export default async function AdminHomeHighlightsPage() {
             className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
           />
         </label>
-        <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2">
-          Add Card
-        </button>
+        <SubmitButton className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90 md:col-span-2" pendingText="Adding…" doneText="✓ Added">
+Add Card
+</SubmitButton>
       </form>
 
       <div className="flex flex-col gap-3">
@@ -130,9 +131,9 @@ export default async function AdminHomeHighlightsPage() {
                 />
               </label>
               <div className="flex gap-3 md:col-span-2">
-                <button className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90">
-                  Save changes
-                </button>
+                <SubmitButton className="w-fit rounded-full bg-navy px-6 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Saving…" doneText="✓ Saved">
+Save changes
+</SubmitButton>
               </div>
             </form>
 

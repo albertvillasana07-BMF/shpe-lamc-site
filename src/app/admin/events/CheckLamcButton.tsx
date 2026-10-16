@@ -12,7 +12,7 @@ export default function CheckLamcButton() {
         disabled={pending}
         className="w-fit rounded-full border-2 border-navy px-5 py-2 text-sm font-bold text-navy hover:bg-navy hover:text-white disabled:opacity-60"
       >
-        {pending ? "Checking lamission.edu…" : "Check LAMC for new events now"}
+        {pending ? "Checking lamc.edu…" : "Check LAMC for new events now"}
       </button>
       <p role="status" aria-live="polite" className="text-sm text-navy/80">
         {state.message}

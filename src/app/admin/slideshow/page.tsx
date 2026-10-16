@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SlideshowPhotoRow } from "@/lib/types";
 import ImageUploadField from "@/components/ImageUploadField";
 import { addSlideshowPhoto, deleteSlideshowPhoto } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 export default async function AdminSlideshowPage() {
   const supabase = await createClient();
@@ -50,9 +51,9 @@ export default async function AdminSlideshowPage() {
             className="mt-1 w-full font-normal text-navy rounded-lg border px-3 py-2"
           />
         </label>
-        <button className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90">
-          Add Photo
-        </button>
+        <SubmitButton className="w-fit rounded-full bg-orange px-6 py-2 text-sm font-bold text-white hover:opacity-90" pendingText="Adding…" doneText="✓ Added">
+Add Photo
+</SubmitButton>
       </form>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">

@@ -9,6 +9,7 @@ import {
   DEFAULT_STORY_TEXT,
 } from "@/components/OurStory";
 import { updateSiteSettings } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
 
 const input = "mt-1 w-full rounded-lg border px-3 py-2 font-normal text-navy";
 const labelCls = "text-sm font-semibold text-navy";
@@ -206,9 +207,9 @@ export default async function AdminSettingsPage() {
           />
         </Section>
 
-        <button className="w-fit rounded-full bg-orange px-6 py-3 text-sm font-bold text-white hover:opacity-90">
-          Save changes
-        </button>
+        <SubmitButton className="w-fit rounded-full bg-orange px-6 py-3 text-sm font-bold text-white hover:opacity-90" pendingText="Saving…" doneText="✓ Saved">
+Save changes
+</SubmitButton>
       </form>
     </div>
   );

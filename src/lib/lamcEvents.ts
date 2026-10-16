@@ -14,8 +14,16 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const LAMC_EVENTS_URL =
-  process.env.LAMC_EVENTS_URL || "https://www.lamission.edu/campus-life/events";
+// LAMC moved from lamission.edu to lamc.edu. The homepage also lists
+// upcoming events, so both pages are checked.
+export const LAMC_EVENTS_URLS = (
+  process.env.LAMC_EVENTS_URL ||
+  "https://www.lamc.edu/campus-life/events,https://www.lamc.edu/"
+)
+  .split(",")
+  .map((u) => u.trim())
+  .filter(Boolean);
+const LAMC_ORIGIN = "https://www.lamc.edu";
 
 const KEYWORDS = [
   "stem", "science", "engineer", "math", "physics", "chemistry", "biology",
@@ -36,17 +44,36 @@ type FoundEvent = {
   source_url: string;
 };
 
+let lastProblem = "";
+
 async function fetchText(url: string): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
+    // Look like a normal browser so basic bot filters let us read public pages
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": "SHPE-LAMC-site event finder (student org)" },
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      lastProblem =
+        res.status === 403 || res.status === 429 || res.status === 503
+          ? `LAMC's website blocked the request (bot protection, status ${res.status})`
+          : `LAMC's website answered with status ${res.status}`;
+      return null;
+    }
     return await res.text();
-  } catch {
+  } catch (err) {
+    lastProblem =
+      (err as Error)?.name === "AbortError"
+        ? "LAMC's website took too long to answer"
+        : "Couldn't reach LAMC's website";
     return null;
   } finally {
     clearTimeout(timer);
@@ -137,20 +164,41 @@ function todayInLA() {
 }
 
 export async function findLamcEvents(maxEvents = DEFAULT_MAX_EVENTS) {
-  const listHtml = await fetchText(LAMC_EVENTS_URL);
-  if (!listHtml) {
-    return { ok: false as const, error: `Couldn't load ${LAMC_EVENTS_URL}`, events: [] as FoundEvent[], scanned: 0 };
+  lastProblem = "";
+  const pages = (await Promise.all(LAMC_EVENTS_URLS.map(fetchText))).filter(
+    (p): p is string => Boolean(p)
+  );
+  if (pages.length === 0) {
+    return {
+      ok: false as const,
+      error: lastProblem || "Couldn't load LAMC's events page",
+      events: [] as FoundEvent[],
+      scanned: 0,
+    };
   }
 
   // LAMC event links look like /campus-life/events/2026/10/22/event-name
+  // (month and day aren't always two digits, e.g. /2026/7/1/)
   const linkRe =
-    /href=["']((?:https?:\/\/(?:www\.)?lamission\.edu)?\/campus-life\/events\/(\d{4})\/(\d{2})\/(\d{2})\/[a-z0-9-]+)\/?["']/gi;
+    /href=["']((?:https?:\/\/(?:www\.)?(?:lamc|lamission)\.edu)?\/campus-life\/events\/(\d{4})\/(\d{1,2})\/(\d{1,2})\/[a-z0-9-]+)\/?["']/gi;
   const today = todayInLA();
   const seen = new Map<string, string>();
-  for (const m of listHtml.matchAll(linkRe)) {
-    const url = m[1].startsWith("http") ? m[1] : `https://www.lamission.edu${m[1]}`;
-    const date = `${m[2]}-${m[3]}-${m[4]}`;
-    if (date >= today && !seen.has(url)) seen.set(url, date);
+  for (const html of pages) {
+    for (const m of html.matchAll(linkRe)) {
+      const path = m[1].replace(/^https?:\/\/(?:www\.)?(?:lamc|lamission)\.edu/i, "");
+      const url = `${LAMC_ORIGIN}${path}`;
+      const date = `${m[2]}-${m[3].padStart(2, "0")}-${m[4].padStart(2, "0")}`;
+      if (date >= today && !seen.has(url)) seen.set(url, date);
+    }
+  }
+
+  if (seen.size === 0) {
+    return {
+      ok: true as const,
+      error: null,
+      events: [] as FoundEvent[],
+      scanned: 0,
+    };
   }
 
   const targets = Array.from(seen.entries()).slice(0, maxEvents);
@@ -179,7 +227,10 @@ export async function syncLamcEvents(supabase: SupabaseClient, maxEvents?: numbe
   if (result.events.length === 0) {
     return {
       ok: true,
-      message: `Checked ${result.scanned} upcoming LAMC events. None matched STEM keywords this time.`,
+      message:
+        result.scanned === 0
+          ? "Loaded LAMC's site, but didn't find any upcoming event links on it."
+          : `Checked ${result.scanned} upcoming LAMC events. None matched STEM keywords this time.`,
       added: 0,
     };
   }
