@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/sponsors", label: "Sponsors" },
   { href: "/admin/sponsor-inquiries", label: "Sponsor Inquiries" },
   { href: "/admin/scholarships", label: "Scholarships" },
+  { href: "/admin/leaderboards", label: "Leaderboards" },
   { href: "/admin/guide", label: "How-To Guide" },
 ];
 

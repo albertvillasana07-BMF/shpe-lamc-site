@@ -56,3 +56,7 @@ create policy "event_suggestions: admin update"
   on public.event_suggestions for update using (public.is_admin());
 create policy "event_suggestions: admin delete"
   on public.event_suggestions for delete using (public.is_admin());
+
+-- When a board member last used the "Send to SHPE" bookmark
+alter table public.site_settings
+  add column if not exists last_lamc_import timestamptz;

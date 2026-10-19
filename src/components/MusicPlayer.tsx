@@ -36,6 +36,26 @@ export default function MusicPlayer() {
 
   useEffect(() => () => player.current?.stop(), []);
 
+  // Step aside while a game plays its own soundtrack, then come back
+  const resumeAfterGame = useRef(false);
+  useEffect(() => {
+    function onGame(e: Event) {
+      const gamePlaying = (e as CustomEvent<{ playing: boolean }>).detail?.playing;
+      const p = player.current;
+      if (gamePlaying && p?.isPlaying()) {
+        p.stop();
+        resumeAfterGame.current = true;
+        setPlaying(false);
+      } else if (!gamePlaying && resumeAfterGame.current && p) {
+        resumeAfterGame.current = false;
+        p.start();
+        setPlaying(true);
+      }
+    }
+    window.addEventListener("shpe-game-music", onGame);
+    return () => window.removeEventListener("shpe-game-music", onGame);
+  }, []);
+
   function toggle() {
     if (!player.current) player.current = createLofiPlayer();
     if (playing) {
@@ -52,11 +72,12 @@ export default function MusicPlayer() {
 
   return (
     <div className="fixed bottom-4 left-4 z-40 flex items-end gap-2">
-      <div className="on-dark flex items-center gap-2 rounded-full bg-navy p-1.5 pr-3 text-white shadow-lg ring-1 ring-white/10">
+      <div className={`on-dark flex items-center gap-2 rounded-full bg-navy p-1 text-white shadow-lg ring-1 ring-white/10 ${playing ? "pr-3" : ""}`}>
         <button
           type="button"
           onClick={toggle}
-          className={`relative flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold ${
+          title={playing ? "Pause music" : "Turn on the vibes"}
+          className={`group relative flex h-10 min-w-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-bold ${
             playing ? "bg-orange-bright text-navy" : "bg-white/10 hover:bg-white/20"
           }`}
         >
@@ -79,7 +100,15 @@ export default function MusicPlayer() {
           ) : (
             <span aria-hidden="true">🎵</span>
           )}
-          <span>{playing ? "Pause music" : "Turn on the vibes"}</span>
+          {/* Label only shows for first-time visitors, or on hover/focus, so the
+              button stays small and never covers games or forms */}
+          <span
+            className={`overflow-hidden whitespace-nowrap transition-all ${
+              glow ? "max-w-48" : "sr-only group-hover:not-sr-only group-focus-visible:not-sr-only group-hover:max-w-48"
+            }`}
+          >
+            {playing ? "Pause music" : "Turn on the vibes"}
+          </span>
         </button>
 
         {playing && (

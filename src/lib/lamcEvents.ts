@@ -1,10 +1,10 @@
 /**
- * Finds upcoming events on the LAMC website (lamission.edu) that are relevant
- * to SHPE members, and saves them as *suggestions* for a board member to
+ * Finds upcoming events on the LAMC website (lamc.edu) for students
+ * and saves them as *suggestions* for a board member to
  * approve. Nothing is posted to the public Events page automatically.
  *
- * Free: no AI or paid API. It reads LAMC's public events pages and keeps the
- * ones whose title/description match STEM-related keywords.
+ * Free: no AI or paid API. It reads LAMC's public events pages and suggests every
+ * upcoming event. Board members choose which ones to post.
  *
  * Used by:
  *  - the weekly Netlify scheduled function (netlify/functions/lamc-events-weekly.mts)
@@ -154,7 +154,7 @@ function parseEventPage(html: string, url: string, date: string): FoundEvent | n
   };
 }
 
-function isRelevant(e: FoundEvent) {
+export function isRelevant(e: FoundEvent) {
   const hay = `${e.title} ${e.description ?? ""}`.toLowerCase();
   return KEYWORDS.some((k) => hay.includes(k));
 }
@@ -216,7 +216,9 @@ export async function findLamcEvents(maxEvents = DEFAULT_MAX_EVENTS) {
     for (const r of results) if (r) found.push(r);
   }
 
-  return { ok: true as const, error: null, events: found.filter(isRelevant), scanned: found.length };
+  // All upcoming LAMC events are suggested, not just STEM ones. Board members
+  // decide what to post. To go back to STEM-only, use found.filter(isRelevant).
+  return { ok: true as const, error: null, events: found, scanned: found.length };
 }
 
 /** Finds events and saves new ones as pending suggestions. */
@@ -230,7 +232,7 @@ export async function syncLamcEvents(supabase: SupabaseClient, maxEvents?: numbe
       message:
         result.scanned === 0
           ? "Loaded LAMC's site, but didn't find any upcoming event links on it."
-          : `Checked ${result.scanned} upcoming LAMC events. None matched STEM keywords this time.`,
+          : `Checked ${result.scanned} upcoming LAMC events, but couldn't read any of them.`,
       added: 0,
     };
   }
@@ -245,7 +247,7 @@ export async function syncLamcEvents(supabase: SupabaseClient, maxEvents?: numbe
   const added = data?.length ?? 0;
   return {
     ok: true,
-    message: `Checked ${result.scanned} upcoming LAMC events. ${result.events.length} matched, ${added} new suggestion${added === 1 ? "" : "s"} added.`,
+    message: `Found ${result.events.length} upcoming LAMC event${result.events.length === 1 ? "" : "s"}. ${added} new suggestion${added === 1 ? "" : "s"} added${added < result.events.length ? " (the rest were already in your list)" : ""}.`,
     added,
   };
 }

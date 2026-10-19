@@ -26,9 +26,18 @@ export default function AdminGuidePage() {
         <Step title="Every week (5 minutes)">
           <ul>
             <li>
-              Open <Link href="/admin/events" className="font-semibold text-orange underline">Events</Link>{" "}
-              and check <strong>Suggested from LAMC</strong>. Approve the ones that fit the
-              chapter, dismiss the rest. Every Monday the site finds new ones on its own.
+              Open{" "}
+              <a href="https://www.lamc.edu/campus-life/events" target="_blank" rel="noopener noreferrer" className="font-semibold text-orange underline">
+                LAMC&apos;s events page<span className="sr-only"> (opens in a new tab)</span>
+              </a>{" "}
+              and click your <strong>📅 Send to SHPE</strong> bookmark. (First time? Set it up
+              on the <Link href="/admin/events" className="font-semibold text-orange underline">Events</Link> page,
+              it takes 10 seconds.)
+            </li>
+            <li>
+              On <Link href="/admin/events" className="font-semibold text-orange underline">Events</Link>,
+              approve the LAMC events that fit the chapter and dismiss the rest. The Events page
+              shows how many days since the last import.
             </li>
             <li>Add any chapter events that aren&apos;t on the LAMC calendar.</li>
             <li>
@@ -57,6 +66,23 @@ export default function AdminGuidePage() {
               <Link href="/admin/members" className="font-semibold text-orange underline">Members</Link>:
               use <strong>Download members</strong> for email blasts or SHPE National reports.
             </li>
+          </ul>
+        </Step>
+
+        <Step title="Games and leaderboards">
+          <ul>
+            <li>
+              The <strong>Weekly Wordle</strong> picks a new word every Monday on its own (700+ words,
+              so it won&apos;t repeat for over 10 years). Nothing to update.
+            </li>
+            <li>
+              Leaderboards reset each week automatically, and All time keeps the records.
+            </li>
+            <li>
+              If someone posts an inappropriate name, delete it on the{" "}
+              <Link href="/admin/leaderboards" className="font-semibold text-orange underline">Leaderboards</Link> page.
+            </li>
+            <li>The secret game is the discipline color bar above the footer. Keep it a secret. 🤫</li>
           </ul>
         </Step>
 
@@ -94,7 +120,7 @@ export default function AdminGuidePage() {
           <ul>
             <li>
               The board inbox gets an email when someone joins, when a sponsor fills
-              out the sponsor form, and when new LAMC events are suggested.
+              out the sponsor form, and a Monday reminder to import LAMC events.
             </li>
             <li>
               To change which inbox gets alerts, update <strong>NOTIFY_EMAIL</strong> in

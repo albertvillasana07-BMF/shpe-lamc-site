@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { H, W, startBreakout } from "@/lib/fun/breakout";
+import Leaderboard from "@/components/games/Leaderboard";
+import ScoreSubmit from "@/components/games/ScoreSubmit";
 
 const BEST_KEY = "shpe-breakout-best";
 
@@ -47,6 +49,9 @@ function GameDialog({ onClose }: { onClose: () => void }) {
   const [best, setBest] = useState(0);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"ready" | "playing" | "paused" | "won" | "lost">("ready");
+  const [refresh, setRefresh] = useState(0);
+  const [round, setRound] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
   const titleId = useId();
   const helpId = useId();
 
@@ -56,6 +61,10 @@ function GameDialog({ onClose }: { onClose: () => void }) {
       if (saved) setTimeout(() => setBest(saved), 0);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (status === "won" || status === "lost") setTimeout(() => setFinalScore(score), 0);
+  }, [status, score]);
 
   useEffect(() => {
     if (score > best) {
@@ -73,7 +82,10 @@ function GameDialog({ onClose }: { onClose: () => void }) {
       onScore: setScore,
       onLives: setLives,
       onMessage: setMessage,
-      onStatus: setStatus,
+      onStatus: (s) => {
+        setStatus(s);
+        if (s === "won" || s === "lost") setRound((r) => r + 1);
+      },
     });
     canvas.focus();
 
@@ -144,7 +156,7 @@ function GameDialog({ onClose }: { onClose: () => void }) {
         aria-labelledby={titleId}
         aria-describedby={helpId}
         onKeyDown={trapFocus}
-        className="on-dark w-full max-w-xl rounded-2xl bg-navy p-4 text-white shadow-2xl"
+        className="on-dark max-h-full w-full max-w-xl overflow-y-auto rounded-2xl bg-navy p-4 text-white shadow-2xl"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
@@ -191,6 +203,21 @@ function GameDialog({ onClose }: { onClose: () => void }) {
         <p role="status" aria-live="polite" className="sr-only">
           {message}
         </p>
+
+        {(status === "won" || status === "lost") && score > 0 && (
+          <div key={round} className="mt-3 rounded-xl bg-white/5 p-3">
+            <ScoreSubmit
+              game="breakout"
+              score={finalScore || score}
+              dark
+              onSubmitted={() => setRefresh((r) => r + 1)}
+            />
+          </div>
+        )}
+
+        <div className="mt-3">
+          <Leaderboard game="breakout" refreshKey={refresh} dark />
+        </div>
 
         {status === "won" && (
           <p className="mt-3 text-center font-semibold text-gold">

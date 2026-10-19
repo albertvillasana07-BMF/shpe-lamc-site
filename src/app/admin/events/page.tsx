@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { EventRow, EventSuggestionRow } from "@/lib/types";
 import ImageUploadField from "@/components/ImageUploadField";
-import CheckLamcButton from "./CheckLamcButton";
+import BookmarkletInstaller from "./BookmarkletInstaller";
 import {
   approveSuggestion,
   createEvent,
@@ -71,16 +71,26 @@ function EventFields({ e, idPrefix }: { e?: Partial<EventRow>; idPrefix: string 
   );
 }
 
+function daysAgo(iso: string | null | undefined) {
+  if (!iso) return null;
+  return Math.floor((new Date().getTime() - new Date(iso).getTime()) / 86_400_000);
+}
+
 export default async function AdminEventsPage() {
   const supabase = await createClient();
-  const [{ data: events }, { data: suggestions }] = await Promise.all([
+  const [{ data: events }, { data: suggestions }, { data: settingsRow }] = await Promise.all([
     supabase.from("events").select("*").order("event_date", { ascending: true }),
     supabase
       .from("event_suggestions")
       .select("*")
       .eq("status", "pending")
       .order("event_date", { ascending: true }),
+    supabase.from("site_settings").select("last_lamc_import").eq("id", 1).single(),
   ]);
+
+  const lastImport = (settingsRow as { last_lamc_import: string | null } | null)?.last_lamc_import;
+  const daysSince = daysAgo(lastImport);
+  const due = daysSince === null || daysSince >= 7;
 
   const rows = (events ?? []) as EventRow[];
   const pending = (suggestions ?? []) as EventSuggestionRow[];
@@ -97,12 +107,44 @@ export default async function AdminEventsPage() {
         <h2 id="suggested-heading" className="text-lg text-navy">
           Suggested from LAMC ({pending.length})
         </h2>
-        <p className="mb-4 mt-1 text-sm text-navy/80">
-          Every Monday the site checks lamc.edu for STEM-related events.
-          Nothing goes live until a board member approves it. Edit anything
-          before approving.
+        <p
+          className={`mt-2 w-fit rounded-full px-3 py-1 text-sm font-bold ${
+            due ? "bg-orange/10 text-orange" : "bg-teal/10 text-teal"
+          }`}
+        >
+          {daysSince === null
+            ? "No LAMC import yet"
+            : daysSince === 0
+              ? "Last LAMC import: today ✓"
+              : `Last LAMC import: ${daysSince} day${daysSince === 1 ? "" : "s"} ago${due ? ", time for a new one" : " ✓"}`}
         </p>
-        <CheckLamcButton />
+
+        <h3 className="mt-5 text-base text-navy">Weekly: import LAMC events (10 seconds)</h3>
+        <ol className="mb-4 ml-5 mt-1 list-decimal text-sm text-navy/80">
+          <li>
+            Open{" "}
+            <a
+              href="https://www.lamc.edu/campus-life/events"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-orange underline"
+            >
+              LAMC&apos;s events page<span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            .
+          </li>
+          <li>Click your <strong>📅 Send to SHPE</strong> bookmark.</li>
+          <li>Approve the events you want below. Nothing goes live until you do.</li>
+        </ol>
+
+        <details className="rounded-xl bg-white p-4 text-sm" open={daysSince === null}>
+          <summary className="cursor-pointer font-bold text-navy">
+            First time? Set up the Send to SHPE bookmark
+          </summary>
+          <div className="mt-3">
+            <BookmarkletInstaller />
+          </div>
+        </details>
 
         {pending.length > 0 && (
           <ul className="mt-5 flex flex-col gap-3">

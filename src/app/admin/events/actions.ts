@@ -84,3 +84,62 @@ export async function checkLamcNow(
   revalidatePath("/admin/events");
   return { message: result.message };
 }
+
+/* ---------- "Send to SHPE" bookmark import ---------- */
+
+export type ImportedEvent = {
+  u: string; // LAMC event link
+  d: string; // date, YYYY-MM-DD
+  t: string; // title
+  desc?: string;
+  time?: string;
+  loc?: string;
+};
+
+const LAMC_EVENT_URL =
+  /^https:\/\/www\.lamc\.edu\/campus-life\/events\/\d{4}\/\d{1,2}\/\d{1,2}\/[a-z0-9-]+$/i;
+
+const cut = (v: unknown, max: number) =>
+  typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : null;
+
+export async function importLamcEvents(
+  events: ImportedEvent[]
+): Promise<{ ok: true; found: number; added: number } | { ok: false; message: string }> {
+  if (!Array.isArray(events)) return { ok: false, message: "No events received." };
+
+  // Only accept real LAMC event links with valid dates
+  const rows = events
+    .slice(0, 100)
+    .filter((e) => e && typeof e.u === "string" && LAMC_EVENT_URL.test(e.u) && /^\d{4}-\d{2}-\d{2}$/.test(e.d))
+    .map((e) => ({
+      title: cut(e.t, 160) ?? "LAMC event",
+      event_date: e.d,
+      source_url: e.u,
+      description: cut(e.desc, 400),
+      event_time: cut(e.time, 60),
+      location: cut(e.loc, 140),
+    }));
+
+  if (rows.length === 0) return { ok: false, message: "None of those looked like LAMC event links." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_suggestions")
+    .upsert(rows, { onConflict: "source_url", ignoreDuplicates: true })
+    .select("id");
+
+  if (error) {
+    return {
+      ok: false,
+      message: "Couldn't save the events. Make sure you're logged in as an admin, then try again.",
+    };
+  }
+
+  await supabase
+    .from("site_settings")
+    .update({ last_lamc_import: new Date().toISOString() })
+    .eq("id", 1);
+
+  revalidatePath("/admin/events");
+  return { ok: true, found: rows.length, added: data?.length ?? 0 };
+}

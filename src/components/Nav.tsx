@@ -3,7 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+
+// Only download the games when someone opens the arcade
+const ArcadeModal = dynamic(() => import("@/components/games/ArcadeModal"), { ssr: false });
 
 const links = [
   { href: "/", label: "Home" },
@@ -19,6 +23,8 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [arcadeOpen, setArcadeOpen] = useState(false);
+  const closeArcade = useCallback(() => setArcadeOpen(false), []);
 
   // Close with the Escape key and put focus back on the menu button
   useEffect(() => {
@@ -113,8 +119,21 @@ export default function Nav() {
               </li>
             );
           })}
+          <li className="border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setArcadeOpen(true);
+              }}
+              className="flex w-full items-center gap-2 py-3 text-left text-lg font-semibold text-white hover:text-gold"
+            >
+              Games <span aria-hidden="true">🎮</span>
+            </button>
+          </li>
         </ul>
       </nav>
+      {arcadeOpen && <ArcadeModal onClose={closeArcade} />}
     </header>
   );
 }
