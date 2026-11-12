@@ -1,0 +1,155 @@
+import Image from "next/image";
+import Link from "next/link";
+import PhotoSlideshow from "@/components/PhotoSlideshow";
+import OurStory from "@/components/OurStory";
+import ShpeText from "@/components/ShpeText";
+import DisciplineBar from "@/components/DisciplineBar";
+import { createPublicClient } from "@/lib/supabase/public";
+import type { HomeHighlightRow, SiteSettings, SlideshowPhotoRow } from "@/lib/types";
+
+// Cached and rebuilt at most every 60 minutes, or right away when an admin saves a change.
+export const revalidate = 3600;
+
+
+const DEFAULT_HERO_SUBTITLE =
+  "Engineering students at Los Angeles Mission College building community, mentorship, and career opportunities — together.";
+
+const DEFAULT_ABOUT_US =
+  "SHPE LAMC is the Los Angeles Mission College chapter of the Society of Hispanic Professional Engineers. We connect engineering students with mentorship, scholarships, and career opportunities, while giving back through outreach to local middle and high schools.";
+
+const DEFAULT_HIGHLIGHTS = [
+  {
+    title: "Mentorship & Networking",
+    body: "Connect with engineering professionals and alumni.",
+    color: "bg-orange",
+  },
+  {
+    title: "Scholarships",
+    body: "Opportunities through SHPE National and local sponsors.",
+    color: "bg-teal",
+  },
+  {
+    title: "National Convention",
+    body: "Travel, workshops, and the career fair.",
+    color: "bg-pink",
+  },
+  {
+    title: "Hands-on Outreach",
+    body: "Work with local middle & high school programs.",
+    color: "bg-navy",
+  },
+  {
+    title: "Resume & Interview Prep",
+    body: "Workshops throughout the semester.",
+    color: "bg-gold",
+  },
+  {
+    title: "Community",
+    body: "A community that supports your path through engineering.",
+    color: "bg-orange",
+  },
+];
+
+export default async function HomePage() {
+  const supabase = createPublicClient();
+
+  const [{ data: settingsData }, { data: highlightsData }, { data: photosData }] =
+    await Promise.all([
+      supabase.from("site_settings").select("*").eq("id", 1).single(),
+      supabase.from("home_highlights").select("*").order("sort_order", { ascending: true }),
+      supabase.from("slideshow_photos").select("*").order("sort_order", { ascending: true }),
+    ]);
+
+  const settings = settingsData as SiteSettings | null;
+  const dbHighlights = (highlightsData ?? []) as HomeHighlightRow[];
+  const dbPhotos = (photosData ?? []) as SlideshowPhotoRow[];
+
+  const heroSubtitle = settings?.hero_subtitle || DEFAULT_HERO_SUBTITLE;
+  const aboutUs = settings?.about_us || DEFAULT_ABOUT_US;
+  const highlights = dbHighlights.length > 0 ? dbHighlights : DEFAULT_HIGHLIGHTS;
+  const heroImage = settings?.hero_image_url || "/images/hero-banner.jpg";
+  const slidePhotos = dbPhotos.map((p) => ({
+    src: p.image_url,
+    alt: p.alt_text || p.caption || "SHPE LAMC chapter photo",
+    caption: p.caption,
+  }));
+  const heroAlt =
+    settings?.hero_image_alt ||
+    "SHPE LAMC, Society of Hispanic Professional Engineers at Los Angeles Mission College. We are dedicated to empowering students to realize their potential in STEM fields through education, services, familia, and opportunities.";
+
+  return (
+    <div>
+      {/* Hero */}
+      <section className="relative">
+        <div className="relative aspect-[7/6] w-full sm:aspect-[2/1] md:aspect-[16/7]">
+          <Image
+            src={heroImage}
+            alt={heroAlt}
+            fill
+            priority
+            // Phones crop to the right side (logos + chapter photo) so it's big enough to see
+            className="object-cover object-right sm:object-center"
+            sizes="100vw"
+            unoptimized={heroImage.startsWith("http")}
+          />
+        </div>
+        <DisciplineBar />
+        <h1 className="sr-only">SHPE LAMC, Society of Hispanic Professional Engineers at Los Angeles Mission College</h1>
+        <p className="mx-auto max-w-3xl px-4 py-4 text-center text-base text-navy/80">
+          {heroSubtitle}
+        </p>
+        <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-3 px-4 pb-6">
+          <Link
+            href="/join"
+            className="rounded-full bg-navy px-6 py-3 text-sm font-bold text-white shadow hover:opacity-90"
+          >
+            <ShpeText>Join SHPE LAMC</ShpeText>
+          </Link>
+          <Link
+            href="/events"
+            className="rounded-full border-2 border-navy px-6 py-3 text-sm font-bold text-navy hover:bg-navy/5"
+          >
+            See upcoming events
+          </Link>
+        </div>
+      </section>
+
+      {/* Photo slideshow */}
+      <section className="px-4">
+        <PhotoSlideshow photos={slidePhotos} />
+      </section>
+
+      {/* About */}
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-widest text-pink">
+          About Us
+        </h2>
+        <p className="max-w-3xl whitespace-pre-line text-base text-navy/90 sm:text-lg">
+          {aboutUs}
+        </p>
+      </section>
+
+      {/* Our story */}
+      <OurStory settings={settings} />
+
+      {/* Why join */}
+      <section className="mx-auto max-w-6xl px-4 pb-16">
+        <h2 className="mb-6 text-center text-sm font-extrabold uppercase tracking-widest text-pink">
+          Why Join
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+          {highlights.map((item, i) => (
+            <div
+              key={"id" in item ? item.id : i}
+              className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm md:p-6"
+            >
+              <div aria-hidden="true" className={`mb-3 h-2 w-10 rounded-full ${item.color ?? "bg-orange"}`} />
+              <h3 className="mb-1 font-bold text-navy">{item.title}</h3>
+              <p className="text-sm text-navy/70">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
