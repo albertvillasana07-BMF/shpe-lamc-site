@@ -11,8 +11,8 @@ export async function signupMember(
   const email = String(formData.get("email") ?? "").trim();
   const student_id = String(formData.get("student_id") ?? "").trim() || null;
 
-  if (!full_name || !email) {
-    return { ok: false, error: "Please enter your name and email." };
+  if (!full_name || !email || !student_id) {
+    return { ok: false, error: "Please enter your name, email, and student ID." };
   }
 
   const supabase = await createClient();

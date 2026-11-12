@@ -70,8 +70,13 @@ export default function JoinForm() {
         />
       </label>
       <label className={label}>
-        Student ID (optional)
-        <input name="student_id" inputMode="numeric" autoComplete="off" className={field} />
+        <span>
+          Student ID <span aria-hidden="true">*</span>
+        </span>
+        <input name="student_id" required inputMode="numeric" autoComplete="off" aria-describedby="sid-help" className={field} />
+        <span id="sid-help" className="text-xs font-normal text-navy/70">
+          You&apos;ll also use this with your email to sign in to the SHPE Arcade leaderboards.
+        </span>
       </label>
       {state.error && (
         <p id="join-error" role="alert" className="text-sm font-semibold text-pink">
