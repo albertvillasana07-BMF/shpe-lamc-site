@@ -122,3 +122,17 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/* Phones: 16px form text stops iPhones from zooming in when you tap a field,
+   and remove the gray flash when tapping links/buttons */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}

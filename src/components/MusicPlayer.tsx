@@ -56,6 +56,16 @@ export default function MusicPlayer() {
     return () => window.removeEventListener("shpe-game-music", onGame);
   }, []);
 
+  // Get out of the way while a game is on screen (phones especially)
+  const [gameActive, setGameActive] = useState(false);
+  useEffect(() => {
+    function onActive(e: Event) {
+      setGameActive(!!(e as CustomEvent<{ active: boolean }>).detail?.active);
+    }
+    window.addEventListener("shpe-game-active", onActive);
+    return () => window.removeEventListener("shpe-game-active", onActive);
+  }, []);
+
   function toggle() {
     if (!player.current) player.current = createLofiPlayer();
     if (playing) {
@@ -71,7 +81,7 @@ export default function MusicPlayer() {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 z-40 flex items-end gap-2">
+    <div className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 flex items-end gap-2 transition-opacity md:bottom-4 md:left-4 md:right-auto ${gameActive ? "pointer-events-none opacity-0" : ""}`}>
       <div className={`on-dark flex items-center gap-2 rounded-full bg-navy p-1 text-white shadow-lg ring-1 ring-white/10 ${playing ? "pr-3" : ""}`}>
         <button
           type="button"

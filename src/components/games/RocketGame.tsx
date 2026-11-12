@@ -88,9 +88,19 @@ export default function RocketGame() {
     window.dispatchEvent(new CustomEvent("shpe-game-music", { detail: { playing: flying && !muted } }));
   }, [status, muted]);
 
+  // Phones: hide the tab bar + music button while flying, and center the game on screen
+  useEffect(() => {
+    const active = status === "playing" || status === "cutscene";
+    window.dispatchEvent(new CustomEvent("shpe-game-active", { detail: { active } }));
+    if (status === "playing" && window.innerWidth < 768) {
+      canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [status]);
+
   useEffect(
     () => () => {
       window.dispatchEvent(new CustomEvent("shpe-game-music", { detail: { playing: false } }));
+      window.dispatchEvent(new CustomEvent("shpe-game-active", { detail: { active: false } }));
     },
     []
   );
@@ -139,6 +149,7 @@ export default function RocketGame() {
       canvas,
       {
         onSfx: (kind) => audio.current?.sfx(kind),
+        onLanding: (planet) => audio.current?.landing(planet),
         onScore: setScore,
         onStatus: (s) => {
           setStatus(s);
@@ -156,6 +167,7 @@ export default function RocketGame() {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select")) return;
       const down = e.type === "keydown";
+      if (down) audio.current?.unlock();
       if (down && e.key.length === 1) {
         keyBuf.current = (keyBuf.current + e.key.toLowerCase()).slice(-SECRET.length);
         if (keyBuf.current === SECRET) {
@@ -232,7 +244,7 @@ export default function RocketGame() {
                 : status === "over"
                   ? "Game over."
                   : inEnding
-                    ? "Secret ending. You're the new number one."
+                    ? "Landing cutscene."
                     : ""
           } Steer with the arrow keys.`}
           className="mx-auto block touch-none rounded-2xl bg-[#12002e] shadow-lg"
@@ -243,6 +255,7 @@ export default function RocketGame() {
           }}
           onPointerLeave={() => game.current?.steerTo(null)}
           onPointerDown={(e) => {
+            audio.current?.unlock(); // phones only allow sound that starts during a tap
             canvasRef.current?.focus();
             if (status !== "playing" && !inEnding) game.current?.action();
             game.current?.steerTo(toGameX(e.clientX));
@@ -253,6 +266,7 @@ export default function RocketGame() {
             <button
               type="button"
               onClick={() => {
+                audio.current?.unlock();
                 game.current?.action();
                 canvasRef.current?.focus();
               }}
@@ -263,7 +277,10 @@ export default function RocketGame() {
           )}
           <button
             type="button"
-            onClick={() => setMuted((m) => !m)}
+            onClick={() => {
+              audio.current?.unlock();
+              setMuted((m) => !m);
+            }}
             aria-pressed={!muted}
             className="rounded-full border-2 border-navy px-4 py-1.5 text-sm font-bold text-navy hover:bg-navy hover:text-white"
           >
@@ -271,7 +288,7 @@ export default function RocketGame() {
             Sound
           </button>
           <p className="text-xs text-navy/70">
-            Steer with your mouse, finger, or ← → keys. Grab SHPE logos (+50), blue S = shield.
+            Steer with your mouse, finger, or ← → keys. Grab SHPE coins (+50) and the blue S shield. Power-ups unlock as you score: ⚡ boost at 3,000, 🎯 blaster at 10,000, ❤️ extra lives at 15,000.
           </p>
         </div>
         <p className="sr-only" role="status" aria-live="polite">{message}</p>
@@ -352,6 +369,7 @@ export default function RocketGame() {
             <button
               type="button"
               onClick={() => {
+                audio.current?.unlock();
                 game.current?.continueRun();
                 canvasRef.current?.focus();
               }}

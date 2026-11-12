@@ -15,7 +15,20 @@ const START_SPEED = 2.6;
 const MAX_SPEED = 7; // was 9
 const SPEED_RAMP = 4000; // distance per +1 speed (was 2300, higher = slower ramp)
 const DISTANCE_RATE = 1.3; // readout climbs a bit faster than the rocket visibly moves
-const CHECKPOINT = 1000; // a new quote every 1,000 on the readout
+const INTERMISSION_MS = 5000; // breather after the secret ending before rocks return
+const EASE_BACK_MS = 3500; // after "GO", speed ramps from 60% back to full over this long
+const PLANET_EVERY = 7000; // land on the next planet every 7,000 points
+const PLANET_NAMES = ["MERCURY", "VENUS", "EARTH", "MARS", "JUPITER", "SATURN", "URANUS", "NEPTUNE", "PLUTO"];
+// Power-ups (all by points)
+const BOOST_FROM = 3000; // speed boost that smashes rocks
+const BLASTER_FROM = 10000; // rare auto-fire blaster
+const LIFE_FROM = 15000; // extra life coins...
+const LIFE_UNTIL = 63000; // ...until the last planet
+const MAX_LIFE_COINS = 3; // per game, total
+const BOOST_MS = 4500;
+const BLASTER_MS = 7000;
+const COIN_SPACING = 1 / 0.85; // ~15% fewer coins than before
+const CHECKPOINT = 1000; // a new quote every 1,000 points
 // Checkpoint quotes in order (3,000 is the "wow" easter egg). Past 5,000 they cycle.
 const QUOTES: Record<number, string> = {
   1: "YOU ON YOUR WAY",
@@ -34,7 +47,9 @@ type Rock = {
   x: number; y: number; r: number; vy: number; vx: number; rot: number; vr: number;
   pts: number[]; craters: Crater[]; specks: Speck[]; tint: number;
 };
-type Item = { x: number; y: number; vy: number; kind: "coin" | "shield"; t: number };
+type ItemKind = "coin" | "shield" | "boost" | "blaster" | "life";
+type Item = { x: number; y: number; vy: number; kind: ItemKind; t: number };
+type Bolt = { x: number; y: number; dead?: boolean };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
 type Star = { x: number; y: number; tw: number };
 
@@ -42,7 +57,9 @@ export type RocketEvents = {
   onScore: (score: number) => void;
   onStatus: (s: RocketStatus) => void;
   onMessage: (m: string) => void;
-  onSfx?: (kind: "coin" | "shield" | "crash" | "zone" | "launch") => void;
+  onSfx?: (kind: "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup") => void;
+  /** A planet landing jingle should play (0 = Mercury ... 8 = Pluto) */
+  onLanding?: (planet: number) => void;
 };
 
 // Each zone shifts the synthwave palette
@@ -162,10 +179,25 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
   let landed = false;
   let planted = false;
   let prez = false;
+  let countdown = 0; // ms left in the intermission
+  let cutKind: "record" | "planet" = "record";
+  let cutPlanet = 2; // which planet the cutscene lands on (Earth = home)
+  let flags = 0; // planets landed on this run
+  let goUntil = 0;
+  let speedMul = 1; // < 1 while easing back in after the intermission
   let palette: Palette = ROCKET_COLORS[0].p;
   let rocketStyle = "classic";
   let prezFlash = 0;
   let rocks: Rock[] = [];
+  let bolts: Bolt[] = [];
+  let boostT = 0; // ms of speed boost left
+  let blasterT = 0; // ms of blaster left
+  let fireCd = 0;
+  let lives = 0; // extra lives held
+  let lifeCoinsSpawned = 0;
+  let lastBoostAt = -1e9; // score when each power-up last spawned (keeps them spread out)
+  let lastBlasterAt = -1e9;
+  let lastLifeAt = -1e9;
   let items: Item[] = [];
   let parts: Particle[] = [];
   let spawnRock = 0;
@@ -211,12 +243,22 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     invuln = 0;
     zoneIdx = 0;
     nextCheckpoint = CHECKPOINT;
+    countdown = 0;
+    flags = 0;
+    goUntil = 0;
+    speedMul = 1;
     top5Shown = false;
     callout = null;
     recordBeaten = false;
     rocks = [];
     items = [];
     parts = [];
+    bolts = [];
+    boostT = 0;
+    blasterT = 0;
+    lives = 0;
+    lifeCoinsSpawned = 0;
+    lastBoostAt = lastBlasterAt = lastLifeAt = -1e9;
     spawnRock = 90;
     spawnItem = 260;
     lastReportedScore = -1;
@@ -273,31 +315,59 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
   const rocketCutY = (t: number) => lerp(-70, rocketLandY(), ease((t - 2) / 2.6));
   const flagX = W / 2 + 74;
 
-  function startCutscene() {
+  function startCutscene(kind: "record" | "planet" = "record", planet = 2) {
+    cutKind = kind;
+    cutPlanet = planet;
     cutT = 0;
     landed = false;
     planted = false;
     parts = [];
+    callout = null;
     setStatus("cutscene");
-    ev.onMessage("New number one! Rocket SHPE made it home.");
+    ev.onMessage(
+      kind === "record"
+        ? "New number one! Rocket SHPE made it home."
+        : `Landing on ${PLANET_NAMES[planet].toLowerCase()}. Planet ${planet + 1} of 9.`
+    );
     ev.onSfx?.("zone");
   }
 
+  /** 5-second breather, then the speed eases back in */
+  function beginIntermission() {
+    rocks = [];
+    items = [];
+    parts = [];
+    bolts = [];
+    boostT = 0;
+    invuln = 0;
+    countdown = INTERMISSION_MS;
+    speedMul = 0.6;
+    speed = Math.min(MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul;
+    callout = null;
+    zoneBanner = { text: "", until: 0 };
+    last = performance.now();
+    setStatus("playing");
+    ev.onMessage("Catch your breath. Starting again in 5.");
+  }
+
   function stepCutscene(dt: number) {
-    cutT += dt;
+    cutT += dt * (cutKind === "planet" ? 1.35 : 1); // planet stops are a bit quicker
     const t = cutT / 1000;
     for (const s of cutStars) s.tw += 0.04 * (dt / 16.67);
     if (!landed && t >= 4.6) {
       landed = true;
       burst(W / 2, rocketLandY() + 28, ["#c9b8a3", "#ffffff", "#9aa8c4"], 40, 3);
-      ev.onSfx?.("coin");
+      ev.onLanding?.(cutPlanet);
     }
     if (!planted && t >= 7.2) {
       planted = true;
       burst(flagX, groundY(flagX, earthCyEnd), ["#c9b8a3", "#ffffff"], 18, 2);
       ev.onSfx?.("shield");
     }
-    if (cutT >= CUT_LEN && status === "cutscene") setStatus("record");
+    if (cutT >= CUT_LEN && status === "cutscene") {
+      if (cutKind === "record") setStatus("record");
+      else beginIntermission();
+    }
   }
 
   function step(dt: number) {
@@ -337,8 +407,35 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     vx *= Math.pow(0.82, f);
     x = Math.max(22, Math.min(W - 22, x + vx * f));
 
+    // Intermission after the secret ending: steer freely, nothing spawns, then GO
+    if (countdown > 0) {
+      const before = Math.ceil(countdown / 1000);
+      countdown -= dt;
+      const after = Math.ceil(countdown / 1000);
+      if (countdown <= 0) {
+        countdown = 0;
+        goUntil = performance.now() + 800;
+        invuln = 45;
+        ev.onMessage("Go!");
+        ev.onSfx?.("launch");
+      } else if (after !== before) {
+        ev.onMessage(String(after));
+        ev.onSfx?.("coin");
+      }
+      return;
+    }
+    if (speedMul < 1) speedMul = Math.min(1, speedMul + (0.4 * dt) / EASE_BACK_MS);
+    if (boostT > 0) {
+      boostT -= dt;
+      if (boostT <= 0) {
+        boostT = 0;
+        invuln = 40; // a moment to re-adjust after the boost
+      }
+    }
+    if (blasterT > 0) blasterT = Math.max(0, blasterT - dt);
+
     distance += speed * DISTANCE_RATE * f;
-    speed = Math.min(MAX_SPEED, START_SPEED + distance / SPEED_RAMP);
+    speed = Math.min(MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul * (boostT > 0 ? 1.6 : 1);
     if (invuln > 0) invuln -= f;
 
     const nextZone = ZONES.findLastIndex((z) => distance >= z.at);
@@ -349,8 +446,15 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       ev.onSfx?.("zone");
     }
 
-    // Checkpoints every 1,000 with a quote (3,000 = the wow easter egg)
-    if (distance / 10 >= nextCheckpoint) {
+    // Checkpoints every 1,000 points with a quote (3,000 = the wow easter egg)
+    if (score() >= nextCheckpoint && nextCheckpoint % PLANET_EVERY === 0 && flags < PLANET_NAMES.length) {
+      // Planet landing replaces this checkpoint's quote
+      nextCheckpoint += CHECKPOINT;
+      flags++;
+      startCutscene("planet", flags - 1);
+      return;
+    }
+    if (score() >= nextCheckpoint) {
       const n = nextCheckpoint / CHECKPOINT;
       const until = performance.now() + 3800;
       if (nextCheckpoint === WOW_AT) {
@@ -362,7 +466,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
         };
       } else {
         const quote = QUOTES[n] ?? CYCLE[(n - 6) % CYCLE.length];
-        callout = { big: quote, small: `CHECKPOINT ${nextCheckpoint.toLocaleString()} KM`, color: "#33e1ff", until };
+        callout = { big: quote, small: `${nextCheckpoint.toLocaleString()} POINTS`, color: "#33e1ff", until };
       }
       ev.onMessage(`${callout.big.toLowerCase()}. ${callout.small.toLowerCase()}`);
       ev.onSfx?.("zone");
@@ -376,12 +480,55 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     }
     spawnItem -= speed * f;
     if (spawnItem <= 0) {
-      items.push({
-        x: 40 + Math.random() * (W - 80), y: WORLD_TOP, vy: speed * 0.85,
-        kind: Math.random() < 0.12 && shield === 0 ? "shield" : "coin", t: 0,
-      });
-      spawnItem = (170 + Math.random() * 190) / widthFactor;
+      const sc0 = score();
+      // Each item type gets its own slice of the roll: life 5%, blaster 3%, boost 6%, shield 12%
+      const roll = Math.random();
+      let kind: ItemKind = "coin";
+      if (
+        sc0 >= LIFE_FROM && sc0 < LIFE_UNTIL && lifeCoinsSpawned < MAX_LIFE_COINS &&
+        sc0 - lastLifeAt > 4000 && roll < 0.05
+      ) {
+        kind = "life";
+        lifeCoinsSpawned++;
+        lastLifeAt = sc0;
+      } else if (sc0 >= BLASTER_FROM && blasterT <= 0 && sc0 - lastBlasterAt > 2500 && roll >= 0.05 && roll < 0.08) {
+        kind = "blaster";
+        lastBlasterAt = sc0;
+      } else if (sc0 >= BOOST_FROM && boostT <= 0 && sc0 - lastBoostAt > 1500 && roll >= 0.08 && roll < 0.14) {
+        kind = "boost";
+        lastBoostAt = sc0;
+      } else if (roll >= 0.14 && roll < 0.26 && shield === 0) {
+        kind = "shield";
+      }
+      items.push({ x: 40 + Math.random() * (W - 80), y: WORLD_TOP, vy: speed * 0.85, kind, t: 0 });
+      spawnItem = ((170 + Math.random() * 190) * COIN_SPACING) / widthFactor;
     }
+
+    // Blaster: auto-fire, bolts fly toward the horizon and pop rocks
+    if (blasterT > 0) {
+      fireCd -= f;
+      if (fireCd <= 0) {
+        bolts.push({ x: x - 7, y: ROCKET_WY - 30 }, { x: x + 7, y: ROCKET_WY - 30 });
+        fireCd = 9;
+        ev.onSfx?.("laser");
+      }
+    }
+    for (const b of bolts) {
+      b.y -= 16 * f;
+      for (const r of rocks) {
+        if (r.y > WORLD_BOTTOM) continue;
+        if (Math.abs(b.x - r.x) < r.r * 0.9 + 4 && b.y < r.y + r.r && b.y > r.y - r.r - 20) {
+          const pr = project(r.x, r.y);
+          burst(pr.sx, pr.sy, ["#33e1ff", "#ffffff", "#c9b8a3", "#8f8a84"], 22, 3.5 * pr.s + 1);
+          r.y = WORLD_BOTTOM + 100;
+          b.dead = true;
+          bonus += 25;
+          ev.onSfx?.("pop");
+          break;
+        }
+      }
+    }
+    bolts = bolts.filter((b) => !b.dead && b.y > WORLD_TOP);
 
     // Collisions use on-screen positions, so the hitbox matches the picture
     for (const r of rocks) {
@@ -395,6 +542,12 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
           bonus += 100;
           burst(pr.sx, pr.sy, ["#00ffd0", "#ff00ff", "#ffffff", "#FFD166"], 26, 4.5);
           ev.onSfx?.("coin");
+        } else if (boostT > 0) {
+          // Speed boost: smash straight through
+          r.y = WORLD_BOTTOM + 100;
+          bonus += 50;
+          burst(pr.sx, pr.sy, ["#FD652F", "#FFD166", "#ffffff", "#8f8a84"], 30, 4.5);
+          ev.onSfx?.("pop");
         } else if (shield > 0) {
           shield = 0;
           invuln = 60;
@@ -402,6 +555,15 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
           burst(rs.sx, rs.sy, ["#33e1ff", "#ffffff"], 30, 4);
           ev.onMessage("Shield absorbed the hit");
           ev.onSfx?.("shield");
+        } else if (lives > 0) {
+          // Extra life: survive the hit
+          lives--;
+          invuln = 100;
+          r.y = WORLD_BOTTOM + 100;
+          burst(rs.sx, rs.sy, ["#ff4d6d", "#ffffff", "#FFD166"], 50, 4.5);
+          callout = { big: "EXTRA LIFE USED", small: lives > 0 ? `${lives} LEFT` : "NO MORE LIVES", color: "#ff4d6d", until: performance.now() + 2600 };
+          ev.onMessage(`Extra life used. ${lives} left.`);
+          ev.onSfx?.("crash");
         } else {
           burst(rs.sx, rs.sy, ["#ff3dbb", "#FFD166", "#FD652F", "#ffffff"], 80, 5);
           ev.onSfx?.("crash");
@@ -431,6 +593,25 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
           bonus += 50;
           burst(pi.sx, pi.sy, SHPE, 18, 2.8);
           ev.onSfx?.("coin");
+        } else if (it.kind === "boost") {
+          boostT = BOOST_MS;
+          burst(rs.sx, rs.sy, ["#FD652F", "#FFD166", "#ffffff"], 30, 4);
+          callout = { big: "SPEED BOOST", small: "SMASH THROUGH ROCKS", color: "#FD652F", until: performance.now() + 2600 };
+          ev.onMessage("Speed boost. Smash through rocks.");
+          ev.onSfx?.("powerup");
+        } else if (it.kind === "blaster") {
+          blasterT = BLASTER_MS;
+          fireCd = 0;
+          burst(rs.sx, rs.sy, ["#33e1ff", "#ff3dbb", "#ffffff"], 30, 4);
+          callout = { big: "BLASTER", small: "AUTO-FIRE ON", color: "#ff3dbb", until: performance.now() + 2600 };
+          ev.onMessage("Blaster. Auto-fire on.");
+          ev.onSfx?.("powerup");
+        } else if (it.kind === "life") {
+          lives = Math.min(MAX_LIFE_COINS, lives + 1);
+          burst(pi.sx, pi.sy, ["#ff4d6d", "#ffffff", "#FFD166"], 34, 3.5);
+          callout = { big: "EXTRA LIFE", small: `LIVES x${lives}`, color: "#ff4d6d", until: performance.now() + 2600 };
+          ev.onMessage(`Extra life. You have ${lives}.`);
+          ev.onSfx?.("powerup");
         } else {
           shield = 1;
           burst(rs.sx, rs.sy, ["#33e1ff", "#ffffff"], 20, 3);
@@ -763,6 +944,135 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     ctx.restore();
   }
 
+  function drawItem(it: Item) {
+    if (it.kind === "coin") drawCoin(it);
+    else if (it.kind === "shield") drawShieldItem(it);
+    else drawPowerUp(it);
+  }
+
+  /** Boost (orange lightning), Blaster (pink crosshair), Life (red heart coin) */
+  function drawPowerUp(it: Item) {
+    const p = project(it.x, it.y);
+    if (p.sy < HORIZON - 4) return;
+    const r = 15 * p.s;
+    const now = performance.now();
+    const pulse = 0.6 + 0.4 * Math.sin(now / 140 + it.x);
+    const col = it.kind === "boost" ? "#FD652F" : it.kind === "blaster" ? "#ff3dbb" : "#ff4d6d";
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (p.sy - HORIZON) / 40);
+    ctx.translate(p.sx, p.sy);
+    // Big pulsing halo so power-ups stand out from coins
+    const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 3);
+    halo.addColorStop(0, col + "aa");
+    halo.addColorStop(1, col + "00");
+    ctx.globalAlpha *= pulse;
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, r * 3, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = Math.min(1, (p.sy - HORIZON) / 40);
+    // Rotating dashed ring
+    ctx.save();
+    ctx.rotate(now / 400);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.6 * p.s;
+    ctx.setLineDash([4 * p.s, 3 * p.s]);
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.25, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    // Glossy orb
+    const orb = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+    orb.addColorStop(0, "#ffffff");
+    orb.addColorStop(0.35, col);
+    orb.addColorStop(1, "#2a0010");
+    ctx.fillStyle = orb;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    // Icon
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#ffffff";
+    if (it.kind === "boost") {
+      ctx.beginPath();
+      ctx.moveTo(r * 0.15, -r * 0.7); ctx.lineTo(-r * 0.4, r * 0.1); ctx.lineTo(-r * 0.02, r * 0.1);
+      ctx.lineTo(-r * 0.2, r * 0.7); ctx.lineTo(r * 0.42, -r * 0.12); ctx.lineTo(r * 0.04, -r * 0.12);
+      ctx.closePath(); ctx.fill();
+    } else if (it.kind === "blaster") {
+      ctx.lineWidth = 2 * p.s;
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.75); ctx.lineTo(0, -r * 0.2); ctx.moveTo(0, r * 0.2); ctx.lineTo(0, r * 0.75);
+      ctx.moveTo(-r * 0.75, 0); ctx.lineTo(-r * 0.2, 0); ctx.moveTo(r * 0.2, 0); ctx.lineTo(r * 0.75, 0);
+      ctx.stroke();
+    } else {
+      const hs = r * 0.3;
+      ctx.beginPath();
+      ctx.arc(-hs * 0.95, -hs * 0.3, hs, 0, Math.PI * 2);
+      ctx.arc(hs * 0.95, -hs * 0.3, hs, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-hs * 1.9, 0); ctx.lineTo(hs * 1.9, 0); ctx.lineTo(0, hs * 2.1); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBolts() {
+    if (!bolts.length) return;
+    ctx.save();
+    ctx.lineCap = "round";
+    for (const b of bolts) {
+      const a = project(b.x, b.y);
+      const c = project(b.x, b.y + 26);
+      if (a.sy < HORIZON) continue;
+      ctx.shadowColor = "#33e1ff";
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = "#33e1ff";
+      ctx.lineWidth = 4 * a.s;
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5 * a.s;
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(c.sx, c.sy); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawHeartIcon(x0: number, y0: number, s0: number) {
+    ctx.fillStyle = "#ff4d6d";
+    ctx.beginPath();
+    ctx.arc(x0 - s0 * 0.5, y0, s0 * 0.55, 0, Math.PI * 2);
+    ctx.arc(x0 + s0 * 0.5, y0, s0 * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x0 - s0 * 1.05, y0 + s0 * 0.15); ctx.lineTo(x0 + s0 * 1.05, y0 + s0 * 0.15); ctx.lineTo(x0, y0 + s0 * 1.2);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /** Bottom HUD: lives on the left, active power-up timers in the middle */
+  function drawPowerHud() {
+    for (let i = 0; i < lives; i++) drawHeartIcon(20 + i * 18, H - 40, 6);
+    const bars: { label: string; frac: number; col: string }[] = [];
+    if (boostT > 0) bars.push({ label: "BOOST", frac: boostT / BOOST_MS, col: "#FD652F" });
+    if (blasterT > 0) bars.push({ label: "BLASTER", frac: blasterT / BLASTER_MS, col: "#ff3dbb" });
+    bars.forEach((b, i) => {
+      const bw = Math.min(160, W * 0.32);
+      const bx = W / 2 - bw / 2;
+      const by = H - 22 - i * 18;
+      ctx.fillStyle = "rgba(10,0,30,0.55)";
+      ctx.fillRect(bx, by, bw, 6);
+      ctx.fillStyle = b.col;
+      ctx.fillRect(bx, by, bw * b.frac, 6);
+      retroText(b.label, W / 2, by - 3, 6, "#ffffff");
+    });
+    // Speed lines while boosting
+    if (boostT > 0) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 14; i++) {
+        const lx = Math.random() * W;
+        const ly = HORIZON + Math.random() * (H - HORIZON);
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 30 + Math.random() * 40); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   function drawShieldItem(it: Item) {
     const p = project(it.x, it.y);
     if (p.sy < HORIZON - 4) return;
@@ -945,7 +1255,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (const [ws, ls, c0, c1] of layers) {
-      const len = (22 + Math.random() * 10) * ls * big * flick;
+      const len = (22 + Math.random() * 10) * ls * big * flick * (boostT > 0 && status === "playing" ? 2.1 : 1);
       const g = ctx.createLinearGradient(0, y, 0, y + len);
       g.addColorStop(0, c0);
       g.addColorStop(1, c1);
@@ -1207,6 +1517,196 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     return c;
   }
 
+  // Fixed random layout for surface features, so they don't flicker
+  const featureRand = (() => {
+    let seed = 7;
+    return () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+  })();
+  const surfaceSpots = Array.from({ length: 16 }, () => ({ x: featureRand(), y: featureRand(), r: featureRand() }));
+
+  const PLANET_LOOK: { base: [string, string, string]; glow: string }[] = [
+    { base: ["#e6e1d9", "#8f8a84", "#2e2b29"], glow: "#cfc8bd" }, // Mercury
+    { base: ["#fff1c4", "#e8b65c", "#6b3e0e"], glow: "#ffd98a" }, // Venus
+    { base: ["#7fd6ff", "#0070C0", "#001F5B"], glow: "#7fd6ff" }, // Earth (drawn by drawEarth)
+    { base: ["#ffb38a", "#c1440e", "#3d1003"], glow: "#ff8a5c" }, // Mars
+    { base: ["#f6e6c8", "#c99a6b", "#5a3a1c"], glow: "#f0d2a0" }, // Jupiter
+    { base: ["#fff2c9", "#d8b56a", "#5e4419"], glow: "#ffe6a3" }, // Saturn
+    { base: ["#e6fbff", "#7fd6e0", "#1a5560"], glow: "#b3f2ff" }, // Uranus
+    { base: ["#a8c8ff", "#2f5fd6", "#071552"], glow: "#7fa8ff" }, // Neptune
+    { base: ["#f5e8d6", "#b8916a", "#3d2a1b"], glow: "#e8d2b8" }, // Pluto
+  ];
+
+  function drawRings(cy: number, faint: boolean) {
+    const cx = W / 2;
+    const ry = cy - earthR - H * 0.04;
+    const bands = faint
+      ? [{ r: 1.25, w: 2, c: "rgba(200,245,255,0.35)" }]
+      : [
+          { r: 1.15, w: 7, c: "rgba(230,205,150,0.55)" },
+          { r: 1.25, w: 10, c: "rgba(255,235,190,0.65)" },
+          { r: 1.36, w: 5, c: "rgba(200,170,120,0.45)" },
+          { r: 1.42, w: 3, c: "rgba(255,240,210,0.35)" },
+        ];
+    ctx.save();
+    for (const b of bands) {
+      ctx.strokeStyle = b.c;
+      ctx.lineWidth = b.w;
+      ctx.beginPath();
+      ctx.ellipse(cx, ry, earthR * b.r * 0.9, H * 0.11 * b.r, -0.08, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawPlanet(i: number, cy: number, t: number) {
+    if (i === 2) {
+      drawEarth(cy, t);
+      return;
+    }
+    const L = PLANET_LOOK[i];
+    const cx = W / 2;
+    const top = cy - earthR;
+    const span = W * 1.6;
+    const drift = t * 7;
+    const wrapX = (fx: number, speedK = 1) => cx + ((((fx * span + drift * speedK) % span) + span) % span) - span / 2;
+
+    if (i === 5) drawRings(cy, false);
+    if (i === 6) drawRings(cy, true);
+
+    ctx.save();
+    ctx.shadowColor = L.glow;
+    ctx.shadowBlur = 50;
+    const g = ctx.createRadialGradient(cx - earthR * 0.3, cy - earthR * 0.6, earthR * 0.1, cx, cy, earthR);
+    g.addColorStop(0, L.base[0]);
+    g.addColorStop(0.45, L.base[1]);
+    g.addColorStop(1, L.base[2]);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, earthR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, earthR, 0, Math.PI * 2);
+    ctx.clip();
+
+    const vis = H * 0.32; // how much of the planet's surface is on screen
+    if (i === 0) {
+      // Mercury: craters everywhere
+      for (const sp of surfaceSpots) {
+        const x = wrapX(sp.x);
+        const y = top + 8 + sp.y * vis;
+        const r = 5 + sp.r * 20;
+        ctx.fillStyle = "rgba(40,36,33,0.35)";
+        ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,250,240,0.3)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.55, 0, 0.1, Math.PI - 0.1); ctx.stroke();
+      }
+    } else if (i === 1) {
+      // Venus: thick swirling clouds
+      ctx.lineWidth = 9;
+      for (let k = 0; k < 9; k++) {
+        ctx.strokeStyle = k % 2 ? "rgba(255,250,225,0.22)" : "rgba(150,90,20,0.15)";
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 12) {
+          const y = top + 10 + k * (vis / 9) + Math.sin(x * 0.015 + t * 0.8 + k) * 6;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    } else if (i === 3) {
+      // Mars: dark lowlands + white polar ice where the rocket lands
+      for (const sp of surfaceSpots.slice(0, 8)) {
+        ctx.fillStyle = "rgba(70,15,3,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(wrapX(sp.x), top + 20 + sp.y * vis, 25 + sp.r * 50, 8 + sp.r * 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath(); ctx.ellipse(cx, top + 4, W * 0.32, 14, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (i === 4 || i === 5) {
+      // Jupiter / Saturn: cloud bands
+      const cols = i === 4
+        ? ["rgba(255,245,225,0.35)", "rgba(150,90,45,0.4)", "rgba(230,200,160,0.3)", "rgba(120,70,35,0.35)"]
+        : ["rgba(255,250,225,0.25)", "rgba(190,150,80,0.25)"];
+      for (let k = 0; k < 12; k++) {
+        ctx.fillStyle = cols[k % cols.length];
+        const y = top + k * (vis / 10);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= W; x += 16) ctx.lineTo(x, y + Math.sin(x * 0.01 + t + k) * 2);
+        ctx.lineTo(W, y + vis / 12);
+        ctx.lineTo(0, y + vis / 12);
+        ctx.closePath();
+        ctx.fill();
+      }
+      if (i === 4) {
+        // Great Red Spot
+        const x = wrapX(0.7, 0.8);
+        ctx.fillStyle = "rgba(193,68,14,0.75)";
+        ctx.beginPath(); ctx.ellipse(x, top + vis * 0.55, 34, 15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,220,180,0.5)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    } else if (i === 6) {
+      // Uranus: smooth with faint bands
+      for (let k = 0; k < 6; k++) {
+        ctx.fillStyle = `rgba(255,255,255,${0.04 + (k % 2) * 0.05})`;
+        ctx.fillRect(0, top + k * (vis / 5), W, vis / 10);
+      }
+    } else if (i === 7) {
+      // Neptune: white cloud streaks + Great Dark Spot
+      for (const sp of surfaceSpots.slice(0, 7)) {
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(wrapX(sp.x, 1.6), top + 12 + sp.y * vis, 30 + sp.r * 40, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(7,21,82,0.7)";
+      ctx.beginPath(); ctx.ellipse(wrapX(0.3), top + vis * 0.6, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (i === 8) {
+      // Pluto: the famous heart, plus dark patches
+      for (const sp of surfaceSpots.slice(0, 6)) {
+        ctx.fillStyle = "rgba(60,35,20,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(wrapX(sp.x), top + 15 + sp.y * vis, 20 + sp.r * 40, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const hx = wrapX(0.62, 0.6);
+      const hy = top + vis * 0.5;
+      ctx.fillStyle = "rgba(255,248,235,0.85)";
+      ctx.beginPath();
+      ctx.arc(hx - 13, hy - 6, 16, 0, Math.PI * 2);
+      ctx.arc(hx + 13, hy - 6, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(hx - 28, hy);
+      ctx.lineTo(hx + 28, hy);
+      ctx.lineTo(hx, hy + 30);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Night-side shading
+    const shade = ctx.createLinearGradient(0, top, 0, top + vis * 1.4);
+    shade.addColorStop(0, "rgba(0,0,0,0)");
+    shade.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, top, W, vis * 1.4);
+    ctx.restore();
+
+    ctx.strokeStyle = L.glow;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, earthR + 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   function drawFlag(fx: number, gy: number, t: number) {
     // Pole drops from the astronaut's hand into the ground
     const drop = ease((t - 6.8) / 0.4);
@@ -1311,7 +1811,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     }
 
     const cy = earthCy(t);
-    drawEarth(cy, t);
+    drawPlanet(cutPlanet, cy, t);
 
     // Rocket descends and lands
     const ry = rocketCutY(t);
@@ -1341,11 +1841,23 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     if (t < 2.2) {
       const a = Math.sin(clamp01(t / 2.2) * Math.PI);
       ctx.globalAlpha = a;
-      retroText("RECORD BROKEN", W / 2, H * 0.2, 16, "#ff3dbb");
-      retroText("HEADING HOME...", W / 2, H * 0.2 + 26, 9, "#ffffff");
+      if (cutKind === "record") {
+        retroText("RECORD BROKEN", W / 2, H * 0.2, 16, "#ff3dbb");
+        retroText("HEADING HOME...", W / 2, H * 0.2 + 26, 9, "#ffffff");
+      } else {
+        retroText(`PLANET ${cutPlanet + 1} OF 9`, W / 2, H * 0.2, 14, "#33e1ff");
+        retroText(`APPROACHING ${PLANET_NAMES[cutPlanet]}`, W / 2, H * 0.2 + 24, 9, "#ffffff");
+      }
       ctx.globalAlpha = 1;
     }
-    if (t >= 7.8) {
+    if (t >= 7.8 && cutKind === "planet") {
+      ctx.globalAlpha = clamp01((t - 7.8) / 0.6);
+      retroText(PLANET_NAMES[cutPlanet], W / 2, H * 0.16, 26, "#FFD166");
+      retroText("SHPE FLAG PLANTED", W / 2, H * 0.16 + 30, 9, "#ffffff");
+      retroText(`FLAGS ${flags}/9`, W / 2, H * 0.16 + 52, 10, "#33e1ff");
+      ctx.globalAlpha = 1;
+    }
+    if (t >= 7.8 && cutKind === "record") {
       ctx.globalAlpha = clamp01((t - 7.8) / 0.6);
       retroText("NEW #1", W / 2, H * 0.16, 28, "#FFD166");
       retroText("ROCKET SHPE MADE IT HOME", W / 2, H * 0.16 + 30, 9, "#ffffff");
@@ -1368,7 +1880,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
 
       const drawables: { y: number; fn: () => void }[] = [];
       for (const r of rocks) drawables.push({ y: r.y, fn: () => drawRock(r) });
-      for (const it of items) drawables.push({ y: it.y, fn: () => (it.kind === "coin" ? drawCoin(it) : drawShieldItem(it)) });
+      for (const it of items) drawables.push({ y: it.y, fn: () => drawItem(it) });
       drawables.sort((a, b) => a.y - b.y).forEach((d) => d.fn());
 
       for (const p of parts) {
@@ -1378,31 +1890,69 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       }
       ctx.globalAlpha = 1;
 
+      drawBolts();
       if (status !== "over") drawRocket();
 
       // HUD
       retroText(score().toLocaleString(), 14, 28, 14, "#FFD166", "left");
       retroText(`${(distance / 10).toFixed(0)} KM`, 14, 46, 8, "#ffffff", "left");
+      if (flags > 0) retroText(`FLAGS ${flags}/9`, W - 14, 46, 7, "#33e1ff", "right");
       retroText(ZONES[zoneIdx].name.toUpperCase(), W - 14, 28, 8, "#ff9be6", "right");
       if (prez && Math.random() > 0.08) retroText("PREZ.EXE", 14, H - 14, 7, "#00ffd0", "left");
+      drawPowerHud();
 
-      if (zoneBanner.text && performance.now() < zoneBanner.until && status === "playing") {
-        retroText("ENTERING", W / 2, HORIZON + 50, 10, "#ffffff");
-        retroText(zoneBanner.text.toUpperCase(), W / 2, HORIZON + 72, 12, "#FFD166");
+      // Intermission countdown
+      if (status === "playing" && countdown > 0) {
+        const n = Math.ceil(countdown / 1000);
+        const pulse = 1 + 0.15 * ((countdown % 1000) / 1000); // number shrinks a bit each second
+        ctx.fillStyle = "rgba(10,0,30,0.35)";
+        ctx.fillRect(0, H / 2 - 70, W, 120);
+        retroText("CATCH YOUR BREATH", W / 2, H / 2 - 42, 10, "#33e1ff");
+        retroText(String(n), W / 2, H / 2 + 12, Math.round(40 * pulse), "#FFD166");
+        retroText("STEER INTO POSITION", W / 2, H / 2 + 38, 7, "#ffffff");
+      } else if (status === "playing" && performance.now() < goUntil) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, (goUntil - performance.now()) / 800);
+        retroText("GO!", W / 2, H / 2 + 10, 36, "#33e1ff");
+        ctx.restore();
       }
+
+      // Messages sit up top under the HUD, small and see-through, and fade in/out
+      // so they don't block the rocks the player is dodging.
+      const fade = (until: number, dur: number) => {
+        const left = until - performance.now();
+        return Math.max(0, Math.min(1, (dur - left) / 250, left / 700));
+      };
 
       // Checkpoint / easter egg / top-5 callouts
       if (callout && performance.now() < callout.until && status === "playing") {
-        const boxW = Math.min(W - 24, 440);
-        const boxY = HORIZON + 100;
-        const big = Math.min(13, Math.floor((boxW - 24) / callout.big.length));
-        ctx.fillStyle = "rgba(10,0,30,0.78)";
-        ctx.fillRect(W / 2 - boxW / 2, boxY, boxW, 64);
+        const a = fade(callout.until, 3800) * 0.9;
+        const big = Math.min(10, Math.floor((W - 28) / callout.big.length));
+        const y0 = 58;
+        ctx.save();
+        ctx.globalAlpha = a;
+        const strip = ctx.createLinearGradient(0, 0, W, 0);
+        strip.addColorStop(0, "rgba(10,0,30,0)");
+        strip.addColorStop(0.2, "rgba(10,0,30,0.45)");
+        strip.addColorStop(0.8, "rgba(10,0,30,0.45)");
+        strip.addColorStop(1, "rgba(10,0,30,0)");
+        ctx.fillStyle = strip;
+        ctx.fillRect(0, y0, W, 34);
         ctx.fillStyle = callout.color;
-        ctx.fillRect(W / 2 - boxW / 2, boxY, boxW, 2);
-        ctx.fillRect(W / 2 - boxW / 2, boxY + 62, boxW, 2);
-        retroText(callout.big, W / 2, boxY + 29, big, callout.color);
-        retroText(callout.small, W / 2, boxY + 50, 8, "#ffffff");
+        ctx.globalAlpha = a * 0.6;
+        ctx.fillRect(W * 0.25, y0 + 33, W * 0.5, 1);
+        ctx.globalAlpha = a;
+        retroText(callout.big, W / 2, y0 + 15, big, callout.color);
+        retroText(callout.small, W / 2, y0 + 28, 6, "#ffffff");
+        ctx.restore();
+      }
+
+      // Zone change: one small line under the callout spot
+      if (zoneBanner.text && performance.now() < zoneBanner.until && status === "playing") {
+        ctx.save();
+        ctx.globalAlpha = fade(zoneBanner.until, 2200) * 0.8;
+        retroText(`ENTERING ${zoneBanner.text.toUpperCase()}`, W / 2, 106, 7, "#FFD166");
+        ctx.restore();
       }
 
       if (status !== "playing") {
@@ -1440,7 +1990,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
   }
 
   function loop(now: number) {
-    const dt = Math.min(50, now - last);
+    const dt = Math.max(0, Math.min(50, now - last));
     last = now;
     step(dt);
     draw();
@@ -1471,15 +2021,8 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     setTop5(n: number) { top5 = n; },
     /** After the secret ending: clear the area and keep flying */
     continueRun() {
-      if (status !== "record" && status !== "cutscene") return;
-      rocks = [];
-      items = [];
-      parts = [];
-      invuln = 120;
-      zoneBanner = { text: "", until: 0 };
-      last = performance.now();
-      setStatus("playing");
-      ev.onMessage("Back in the air. Keep going.");
+      if (status !== "record") return;
+      beginIntermission();
     },
     /** Rocket color + style from the hangar picker */
     setSkin(colorId: string, styleId: string) {

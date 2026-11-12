@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import MusicPlayer from "@/components/MusicPlayer";
+import MobileTabBar from "@/components/MobileTabBar";
 
 export const metadata: Metadata = {
   title: {
@@ -11,6 +12,16 @@ export const metadata: Metadata = {
   },
   description:
     "SHPE LAMC chapter at Los Angeles Mission College: events, sponsorships, scholarships, and how to join.",
+  icons: { icon: "/images/symbol.png", apple: "/images/symbol.png" },
+  appleWebApp: { capable: true, title: "SHPE LAMC", statusBarStyle: "default" },
+};
+
+// Phones: navy browser bar, and let the page use the full screen around notches
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#001F5B",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -24,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
@@ -34,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <Footer />
         <MusicPlayer />
+        <MobileTabBar />
       </body>
     </html>
   );

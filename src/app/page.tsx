@@ -81,13 +81,14 @@ export default async function HomePage() {
     <div>
       {/* Hero */}
       <section className="relative">
-        <div className="relative aspect-[2/1] w-full md:aspect-[16/7]">
+        <div className="relative aspect-[7/6] w-full sm:aspect-[2/1] md:aspect-[16/7]">
           <Image
             src={heroImage}
             alt={heroAlt}
             fill
             priority
-            className="object-cover"
+            // Phones crop to the right side (logos + chapter photo) so it's big enough to see
+            className="object-cover object-right sm:object-center"
             sizes="100vw"
             unoptimized={heroImage.startsWith("http")}
           />
@@ -119,11 +120,11 @@ export default async function HomePage() {
       </section>
 
       {/* About */}
-      <section className="mx-auto max-w-6xl px-4 py-14">
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-widest text-pink">
           About Us
         </h2>
-        <p className="max-w-3xl whitespace-pre-line text-lg text-navy/90">
+        <p className="max-w-3xl whitespace-pre-line text-base text-navy/90 sm:text-lg">
           {aboutUs}
         </p>
       </section>
@@ -136,11 +137,11 @@ export default async function HomePage() {
         <h2 className="mb-6 text-center text-sm font-extrabold uppercase tracking-widest text-pink">
           Why Join
         </h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
           {highlights.map((item, i) => (
             <div
               key={"id" in item ? item.id : i}
-              className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
+              className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm md:p-6"
             >
               <div aria-hidden="true" className={`mb-3 h-2 w-10 rounded-full ${item.color ?? "bg-orange"}`} />
               <h3 className="mb-1 font-bold text-navy">{item.title}</h3>

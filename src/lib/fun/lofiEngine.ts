@@ -1,3 +1,4 @@
+import { unlockAudio } from "@/lib/fun/mobileAudio";
 /**
  * Original "Tech lo-fi" track, played live with the Web Audio API.
  * Written for SHPE LAMC, so there's nothing to license.
@@ -131,7 +132,7 @@ export function createLofiPlayer(): LofiPlayer {
       if (timer) return;
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!ctx) ctx = new AC();
-      void ctx.resume();
+      unlockAudio(ctx); // phones: unlock during the tap, play through the silent switch
       master = ctx.createGain();
       master.gain.value = volume * 0.8;
       master.connect(ctx.destination);

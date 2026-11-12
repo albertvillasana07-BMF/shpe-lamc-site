@@ -5,6 +5,8 @@
  * and a lead melody with echo. Two 8-bar sections.
  */
 
+import { unlockAudio } from "@/lib/fun/mobileAudio";
+
 const BPM = 112;
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 
@@ -28,7 +30,23 @@ const LEAD: (number | null)[] = [
   83, null, 79, null, 76, 74, null, 71,  76, null, null, null, null, null, null, null,
 ];
 
-export type Sfx = "coin" | "shield" | "crash" | "zone" | "launch";
+export type Sfx = "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup";
+
+/**
+ * A short original fanfare for each planet landing (Mercury → Pluto).
+ * root = MIDI note, notes = semitones above root (null = rest), chord = final held chord.
+ */
+const LANDINGS: { root: number; wave: OscillatorType; step: number; notes: (number | null)[]; chord: number[]; boom?: boolean }[] = [
+  { root: 72, wave: "square", step: 0.09, notes: [0, 4, 7, 12, 7, 12, 16, 19], chord: [0, 4, 7, 12] }, // Mercury: quick and bright
+  { root: 65, wave: "triangle", step: 0.16, notes: [0, 4, 7, 11, null, 7, 11, 14], chord: [0, 4, 7, 11] }, // Venus: dreamy
+  { root: 67, wave: "square", step: 0.13, notes: [0, 0, 4, 7, null, 4, 7, 12], chord: [0, 4, 7, 12], boom: true }, // Earth: triumphant
+  { root: 62, wave: "sawtooth", step: 0.14, notes: [0, null, 0, 3, 7, null, 5, 3, 7], chord: [0, 3, 7, 10], boom: true }, // Mars: march
+  { root: 55, wave: "sawtooth", step: 0.18, notes: [0, 7, 12, null, 10, 12, 16, 19], chord: [0, 4, 7, 12, 16], boom: true }, // Jupiter: big brass
+  { root: 70, wave: "triangle", step: 0.1, notes: [0, 7, 12, 16, 12, 7, 12, 19, 24], chord: [0, 7, 12, 16] }, // Saturn: shimmering rings
+  { root: 76, wave: "sine", step: 0.12, notes: [0, 4, 6, 11, 6, 4, 6, 11, 16], chord: [0, 6, 11] }, // Uranus: glassy
+  { root: 58, wave: "triangle", step: 0.2, notes: [0, 3, 7, null, 8, 7, 3, 10], chord: [0, 3, 7, 10], boom: true }, // Neptune: deep sea
+  { root: 84, wave: "sine", step: 0.14, notes: [0, 2, 4, 7, 9, 7, 4, 12], chord: [0, 4, 7] }, // Pluto: tiny music box
+];
 
 export function createSynthwave() {
   let ctx: AudioContext | null = null;
@@ -165,6 +183,10 @@ export function createSynthwave() {
   }
 
   return {
+    /** Call inside a tap/click so phones allow sound */
+    unlock() {
+      unlockAudio(ensure());
+    },
     start() {
       const c = ensure();
       void c.resume();
@@ -198,10 +220,48 @@ export function createSynthwave() {
         osc(bus, "sawtooth", 220, t, 0.7, 0.25, { glideTo: 40 });
       } else if (kind === "zone") {
         [0, 4, 7, 12].forEach((s, i) => osc(bus, "square", midi(72 + s), t + i * 0.08, 0.12, 0.12));
+      } else if (kind === "laser") {
+        osc(bus, "square", 1400, t, 0.09, 0.05, { glideTo: 350 });
+      } else if (kind === "pop") {
+        noise(bus, t, 0.18, 0.3, "bandpass", 900);
+        osc(bus, "triangle", 260, t, 0.15, 0.12, { glideTo: 80 });
+      } else if (kind === "powerup") {
+        [0, 4, 7, 12, 16, 19, 24].forEach((st, i) => osc(bus, "square", midi(64 + st), t + i * 0.045, 0.1, 0.1));
       } else if (kind === "launch") {
         noise(bus, t, 0.5, 0.25, "bandpass", 600);
         osc(bus, "sawtooth", 110, t, 0.5, 0.15, { glideTo: 440 });
       }
+    },
+    /** Planet landing jingle (0 = Mercury ... 8 = Pluto) */
+    landing(i: number) {
+      if (muted) return;
+      const L = LANDINGS[Math.max(0, Math.min(LANDINGS.length - 1, i))];
+      const c = ensure();
+      void c.resume();
+      const t0 = c.currentTime + 0.02;
+      const bus = sfxBus!;
+      L.notes.forEach((n, k) => {
+        if (n === null) return;
+        const t = t0 + k * L.step;
+        osc(bus, L.wave, midi(L.root + n), t, L.step * 1.6, 0.14, { cutoff: 4000 });
+        osc(bus, L.wave, midi(L.root + n - 12), t, L.step * 1.4, 0.05, { cutoff: 2000 });
+      });
+      const end = t0 + L.notes.length * L.step;
+      L.chord.forEach((n) => osc(bus, L.wave, midi(L.root + n), end, 1.4, 0.07, { cutoff: 3000, detune: 6 }));
+      if (L.boom) {
+        // Low drum hit under the final chord
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.frequency.setValueAtTime(140, end);
+        o.frequency.exponentialRampToValueAtTime(40, end + 0.3);
+        g.gain.setValueAtTime(0.7, end);
+        g.gain.exponentialRampToValueAtTime(0.0001, end + 0.5);
+        o.connect(g);
+        g.connect(bus);
+        o.start(end);
+        o.stop(end + 0.55);
+      }
+      noise(bus, end, 0.9, 0.12, "highpass", 6000); // cymbal shimmer
     },
     destroy() {
       if (timer) clearInterval(timer);

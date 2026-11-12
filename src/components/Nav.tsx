@@ -26,6 +26,15 @@ export default function Nav() {
   const [arcadeOpen, setArcadeOpen] = useState(false);
   const closeArcade = useCallback(() => setArcadeOpen(false), []);
 
+  // The phone tab bar's "Menu" button opens this menu
+  useEffect(() => {
+    function openMenu() {
+      setOpen(true);
+    }
+    window.addEventListener("shpe-open-menu", openMenu);
+    return () => window.removeEventListener("shpe-open-menu", openMenu);
+  }, []);
+
   // Close with the Escape key and put focus back on the menu button
   useEffect(() => {
     if (!open) return;
@@ -41,7 +50,7 @@ export default function Nav() {
 
   return (
     <header className="on-dark sticky top-0 z-50 bg-navy text-white shadow-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:py-3">
         {/* The whole title is the button back to the home page */}
         <Link
           href="/"
@@ -54,7 +63,7 @@ export default function Nav() {
             width={52}
             height={52}
             priority
-            className="h-11 w-11 shrink-0 sm:h-[52px] sm:w-[52px]"
+            className="h-10 w-10 shrink-0 sm:h-[52px] sm:w-[52px]"
           />
           <span className="flex flex-col items-start">
             <Image
@@ -63,7 +72,7 @@ export default function Nav() {
               width={395}
               height={146}
               priority
-              className="h-7 w-auto sm:h-[38px]"
+              className="h-6 w-auto sm:h-[38px]"
             />
             <span className="font-shpe mt-1 whitespace-nowrap text-xs font-semibold text-orange-bright [font-stretch:75%] sm:text-[15px]">
               Los Angeles Mission College
@@ -99,7 +108,7 @@ export default function Nav() {
         id="site-menu"
         aria-label="Main"
         hidden={!open}
-        className="border-t border-white/10 bg-navy-light"
+        className="max-h-[calc(100svh-4rem)] overflow-y-auto overscroll-contain border-t border-white/10 bg-navy-light"
       >
         <ul className="mx-auto max-w-6xl px-4 py-2">
           {links.map((l) => {
