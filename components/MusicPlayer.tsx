@@ -1,0 +1,160 @@
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+import { createLofiPlayer, type LofiPlayer } from "@/lib/fun/lofiEngine";
+
+const SEEN_KEY = "shpe-music-seen";
+
+/**
+ * Small music button in the corner. Music only starts when someone clicks it
+ * (browsers block auto-play, and it's better for screen reader users).
+ * Lives in the main layout, so it keeps playing between pages.
+ */
+export default function MusicPlayer() {
+  const player = useRef<LofiPlayer | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [volume, setVolume] = useState(50);
+  const [glow, setGlow] = useState(false);
+  const volId = useId();
+
+  // Glow once for first-time visitors so they notice the button
+  useEffect(() => {
+    let seen = true;
+    try {
+      seen = localStorage.getItem(SEEN_KEY) === "1";
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {}
+    if (seen) return;
+    const on = setTimeout(() => setGlow(true), 1200);
+    const off = setTimeout(() => setGlow(false), 6000);
+    return () => {
+      clearTimeout(on);
+      clearTimeout(off);
+    };
+  }, []);
+
+  useEffect(() => () => player.current?.stop(), []);
+
+  // Step aside while a game plays its own soundtrack, then come back
+  const resumeAfterGame = useRef(false);
+  useEffect(() => {
+    function onGame(e: Event) {
+      const gamePlaying = (e as CustomEvent<{ playing: boolean }>).detail?.playing;
+      const p = player.current;
+      if (gamePlaying && p?.isPlaying()) {
+        p.stop();
+        resumeAfterGame.current = true;
+        setPlaying(false);
+      } else if (!gamePlaying && resumeAfterGame.current && p) {
+        resumeAfterGame.current = false;
+        p.start();
+        setPlaying(true);
+      }
+    }
+    window.addEventListener("shpe-game-music", onGame);
+    return () => window.removeEventListener("shpe-game-music", onGame);
+  }, []);
+
+  // Get out of the way while a game is on screen (phones especially)
+  const [gameActive, setGameActive] = useState(false);
+  useEffect(() => {
+    function onActive(e: Event) {
+      setGameActive(!!(e as CustomEvent<{ active: boolean }>).detail?.active);
+    }
+    window.addEventListener("shpe-game-active", onActive);
+    return () => window.removeEventListener("shpe-game-active", onActive);
+  }, []);
+
+  function toggle() {
+    if (!player.current) player.current = createLofiPlayer();
+    if (playing) {
+      player.current.stop();
+      setPlaying(false);
+    } else {
+      player.current.setVolume(volume / 100);
+      player.current.start();
+      setPlaying(true);
+      setOpen(true);
+    }
+    setGlow(false);
+  }
+
+  return (
+    <div className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 flex items-end gap-2 transition-opacity md:bottom-4 md:left-4 md:right-auto ${gameActive ? "pointer-events-none opacity-0" : ""}`}>
+      <div className={`on-dark flex items-center gap-2 rounded-full bg-navy p-1 text-white shadow-lg ring-1 ring-white/10 ${playing ? "pr-3" : ""}`}>
+        <button
+          type="button"
+          onClick={toggle}
+          title={playing ? "Pause music" : "Turn on the vibes"}
+          className={`group relative flex h-10 min-w-10 items-center justify-center gap-2 rounded-full px-3 text-sm font-bold ${
+            playing ? "bg-orange-bright text-navy" : "bg-white/10 hover:bg-white/20"
+          }`}
+        >
+          {glow && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 animate-ping rounded-full bg-orange-bright/60"
+            />
+          )}
+          {playing ? (
+            <span aria-hidden="true" className="flex h-4 items-end gap-[3px]">
+              {[0, 1, 2].map((b) => (
+                <span
+                  key={b}
+                  className="w-[3px] rounded-sm bg-navy"
+                  style={{ animation: `shpe-eq 0.9s ${b * 0.15}s ease-in-out infinite`, height: "100%" }}
+                />
+              ))}
+            </span>
+          ) : (
+            <span aria-hidden="true">🎵</span>
+          )}
+          {/* Label only shows for first-time visitors, or on hover/focus, so the
+              button stays small and never covers games or forms */}
+          <span
+            className={`overflow-hidden whitespace-nowrap transition-all ${
+              glow ? "max-w-48" : "sr-only group-hover:not-sr-only group-focus-visible:not-sr-only group-hover:max-w-48"
+            }`}
+          >
+            {playing ? "Pause music" : "Turn on the vibes"}
+          </span>
+        </button>
+
+        {playing && (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="text-xs font-semibold text-white/80 hover:text-white"
+          >
+            {open ? "Hide volume" : "Volume"}
+          </button>
+        )}
+
+        {playing && open && (
+          <div className="flex items-center gap-2">
+            <label htmlFor={volId} className="sr-only">
+              Music volume
+            </label>
+            <input
+              id={volId}
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={volume}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setVolume(v);
+                player.current?.setVolume(v / 100);
+              }}
+              className="w-24 accent-[var(--orange-bright)]"
+            />
+          </div>
+        )}
+      </div>
+      <style>{`@keyframes shpe-eq { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } } [style*="shpe-eq"] { transform-origin: bottom; }`}</style>
+    </div>
+  );
+}
