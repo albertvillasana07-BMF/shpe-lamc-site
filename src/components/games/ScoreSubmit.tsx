@@ -16,12 +16,14 @@ export default function ScoreSubmit({
   seconds,
   onSubmitted,
   dark = false,
+  badges = [],
 }: {
   game: GameId;
   score: number;
   seconds?: number;
   onSubmitted: () => void;
   dark?: boolean;
+  badges?: string[];
 }) {
   const [player, setPlayer] = useState<Player | undefined>(undefined); // undefined = still checking
   const [status, setStatus] = useState<"idle" | "saving" | "done">("idle");
@@ -41,7 +43,7 @@ export default function ScoreSubmit({
     posted.current = true;
     setStatus("saving");
     setError(null);
-    const r = await submitScore(game, score, weekKey(), seconds);
+    const r = await submitScore(game, score, weekKey(), seconds, badges);
     if (r.ok) {
       setStatus("done");
       onSubmitted();

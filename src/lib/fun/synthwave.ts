@@ -30,7 +30,20 @@ const LEAD: (number | null)[] = [
   83, null, 79, null, 76, 74, null, 71,  76, null, null, null, null, null, null, null,
 ];
 
-export type Sfx = "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup";
+/**
+ * Boss track (alien mothership): 150 BPM, D minor with a flat 2nd for menace.
+ * Builds with the fight: level 1 = bass + drums + stabs, 2 = + arpeggio lead,
+ * 3 = + siren, fast hats, crashes.
+ */
+const BOSS_BPM = 150;
+// Dm  Dm  Eb  C  |  Dm  Bb  A   A
+const BOSS_ROOTS = [38, 38, 39, 36, 38, 34, 33, 33];
+const BOSS_CHORDS = [
+  [62, 65, 69], [62, 65, 69], [63, 67, 70], [60, 64, 67],
+  [62, 65, 69], [58, 62, 65], [57, 61, 64], [57, 61, 64],
+];
+
+export type Sfx = "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup" | "alarm" | "missile" | "enemy" | "boom";
 
 /**
  * A short original fanfare for each planet landing (Mercury → Pluto).
@@ -58,6 +71,8 @@ export function createSynthwave() {
   let nextTime = 0;
   let muted = false;
   const sixteenth = 60 / BPM / 4;
+  const bossSixteenth = 60 / BOSS_BPM / 4;
+  let bossLevel = 0; // 0 = normal soundtrack, 1–3 = boss track intensity
 
   function ensure() {
     if (ctx) return ctx;
@@ -146,9 +161,55 @@ export function createSynthwave() {
     o.stop(t + 0.3);
   }
 
+  function bossStep(t: number) {
+    const s16 = step % 16;
+    const bar = Math.floor(step / 16) % 8;
+    const bus = musicBus!;
+    const root = BOSS_ROOTS[bar];
+
+    // Galloping bass: root, root, octave, root
+    const gallop = [0, 0, 12, 0][s16 % 4];
+    osc(bus, "sawtooth", midi(root + gallop), t, bossSixteenth * 0.85, 0.13, { cutoff: 1300 });
+    osc(bus, "square", midi(root - 12), t, bossSixteenth * 0.8, 0.05, { cutoff: 400 });
+
+    // Drums: double kick, big snare on 2 and 4
+    if (s16 % 4 === 0 || s16 === 3 || s16 === 11 || (bossLevel >= 3 && s16 === 7)) kick(t);
+    if (s16 === 4 || s16 === 12) {
+      noise(bus, t, 0.22, 0.42, "bandpass", 1800);
+      noise(bus, t, 0.12, 0.2, "highpass", 5000);
+    }
+    if (bossLevel >= 3 ? true : s16 % 2 === 0) noise(bus, t, 0.03, bossLevel >= 3 ? 0.1 : 0.12, "highpass", 9000);
+    if (bossLevel >= 3 && s16 === 0) noise(bus, t, 1.2, 0.18, "highpass", 4000); // crash every bar
+
+    // Dark chord stabs on the off-beats
+    if (s16 === 2 || s16 === 6 || s16 === 10 || s16 === 14) {
+      BOSS_CHORDS[bar].forEach((n) => osc(bus, "square", midi(n), t, bossSixteenth * 1.2, 0.03, { cutoff: 2600, detune: 10 }));
+    }
+
+    // Level 2+: fast menacing arpeggio lead with echo
+    if (bossLevel >= 2) {
+      const ch = BOSS_CHORDS[bar];
+      const arp = [ch[0], ch[1], ch[2], ch[1] + 12, ch[2], ch[1], ch[0] + 12, ch[2]];
+      const g = osc(bus, "sawtooth", midi(arp[s16 % 8] + 12), t, bossSixteenth * 0.9, 0.035, { cutoff: 3800 });
+      g.connect(delay!);
+    }
+
+    // Level 3: siren sweep every 2 bars
+    if (bossLevel >= 3 && s16 === 0 && bar % 2 === 0) {
+      osc(bus, "sawtooth", midi(74), t, bossSixteenth * 8, 0.035, { glideTo: midi(86), cutoff: 3000 });
+      osc(bus, "sawtooth", midi(86), t + bossSixteenth * 8, bossSixteenth * 8, 0.035, { glideTo: midi(74), cutoff: 3000 });
+    }
+  }
+
   function schedule() {
     const c = ctx!;
     while (nextTime < c.currentTime + 0.15) {
+      if (bossLevel > 0) {
+        bossStep(nextTime);
+        nextTime += bossSixteenth;
+        step++;
+        continue;
+      }
       const t = nextTime;
       const s16 = step % 16;
       const bar = Math.floor(step / 16) % 16;
@@ -199,6 +260,16 @@ export function createSynthwave() {
       if (timer) clearInterval(timer);
       timer = null;
     },
+    /** 0 = normal soundtrack, 1–3 = boss track, getting more intense */
+    setBoss(level: number) {
+      const was = bossLevel;
+      bossLevel = Math.max(0, Math.min(3, level));
+      // Switching tracks: restart on the downbeat so it lands cleanly
+      if ((was === 0) !== (bossLevel === 0) && ctx) {
+        step = 0;
+        nextTime = Math.max(nextTime, ctx.currentTime + 0.05);
+      }
+    },
     setMuted(m: boolean) {
       muted = m;
       const master = (ctx as (AudioContext & { _master?: GainNode }) | null)?._master;
@@ -220,6 +291,17 @@ export function createSynthwave() {
         osc(bus, "sawtooth", 220, t, 0.7, 0.25, { glideTo: 40 });
       } else if (kind === "zone") {
         [0, 4, 7, 12].forEach((s, i) => osc(bus, "square", midi(72 + s), t + i * 0.08, 0.12, 0.12));
+      } else if (kind === "alarm") {
+        osc(bus, "square", 880, t, 0.22, 0.12);
+        osc(bus, "square", 660, t + 0.24, 0.22, 0.12);
+      } else if (kind === "missile") {
+        noise(bus, t, 0.5, 0.25, "bandpass", 1200);
+        osc(bus, "sawtooth", 180, t, 0.4, 0.1, { glideTo: 600 });
+      } else if (kind === "enemy") {
+        osc(bus, "sine", 520, t, 0.18, 0.08, { glideTo: 180 });
+      } else if (kind === "boom") {
+        noise(bus, t, 0.8, 0.5, "lowpass", 600);
+        osc(bus, "sine", 110, t, 0.6, 0.35, { glideTo: 35 });
       } else if (kind === "laser") {
         osc(bus, "square", 1400, t, 0.09, 0.05, { glideTo: 350 });
       } else if (kind === "pop") {
@@ -231,6 +313,45 @@ export function createSynthwave() {
         noise(bus, t, 0.5, 0.25, "bandpass", 600);
         osc(bus, "sawtooth", 110, t, 0.5, 0.15, { glideTo: 440 });
       }
+    },
+    /**
+     * Checkpoint music: a short tune every 1,000 points. Each one is different —
+     * the key climbs as you go and the melody/sound cycles through 6 styles.
+     */
+    jingle(kind: "checkpoint" | "wow" | "top5", n: number) {
+      if (muted) return;
+      const c = ensure();
+      void c.resume();
+      const t0 = c.currentTime + 0.02;
+      const bus = sfxBus!;
+      const play = (notes: number[], root: number, wave: OscillatorType, step: number, vol = 0.11) =>
+        notes.forEach((st, k) => osc(bus, wave, midi(root + st), t0 + k * step, step * 1.8, vol, { cutoff: 4500 }));
+      if (kind === "wow") {
+        // Big "wow": rising run + held chord + cymbal
+        play([0, 4, 7, 11, 12, 16, 19, 24], 64, "square", 0.07);
+        [0, 4, 7, 11].forEach((st) => osc(bus, "sawtooth", midi(76 + st), t0 + 0.56, 1.1, 0.06, { cutoff: 3000, detune: 7 }));
+        noise(bus, t0 + 0.56, 0.9, 0.12, "highpass", 6000);
+        return;
+      }
+      if (kind === "top5") {
+        // Suspense then resolve: "you're close"
+        play([0, 3, 7, 10, 12, 15], 62, "triangle", 0.11, 0.13);
+        [0, 4, 7, 12].forEach((st) => osc(bus, "square", midi(74 + st), t0 + 0.7, 0.9, 0.05));
+        return;
+      }
+      const PATTERNS: { notes: number[]; wave: OscillatorType; step: number }[] = [
+        { notes: [0, 4, 7, 12], wave: "square", step: 0.08 },
+        { notes: [0, 7, 4, 12, 7], wave: "triangle", step: 0.09 },
+        { notes: [12, 7, 4, 7, 12], wave: "square", step: 0.07 },
+        { notes: [0, 2, 4, 7, 9, 12], wave: "triangle", step: 0.06 },
+        { notes: [0, 5, 7, 12, 14], wave: "sawtooth", step: 0.08 },
+        { notes: [0, 4, 7, 11, 14], wave: "sine", step: 0.1 },
+      ];
+      const pat = PATTERNS[(Math.max(1, n) - 1) % PATTERNS.length];
+      const root = 60 + ((Math.max(1, n) - 1) % 12); // key climbs a half step each checkpoint
+      play(pat.notes, root, pat.wave, pat.step);
+      // Little bass hit under it
+      osc(bus, "triangle", midi(root - 12), t0, 0.25, 0.12);
     },
     /** Planet landing jingle (0 = Mercury ... 8 = Pluto) */
     landing(i: number) {

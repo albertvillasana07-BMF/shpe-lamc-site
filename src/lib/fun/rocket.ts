@@ -8,26 +8,39 @@
  * computers both get a wider, zoomed-out view.
  */
 
+import { WEMS_LOGO } from "@/lib/fun/wemsLogo";
+
 const FONT = '"Press Start 2P", ui-monospace, monospace';
 const WOW_AT = 3000; // distance readout that triggers the "wow" message
 // Speed tuning: slower, gentler ramp so players survive longer and see bigger numbers
 const START_SPEED = 2.6;
 const MAX_SPEED = 7; // was 9
+const MAX_SPEED_AFTER_BOSS = 8.4; // faster once the mothership is down
 const SPEED_RAMP = 4000; // distance per +1 speed (was 2300, higher = slower ramp)
 const DISTANCE_RATE = 1.3; // readout climbs a bit faster than the rocket visibly moves
 const INTERMISSION_MS = 5000; // breather after the secret ending before rocks return
 const EASE_BACK_MS = 3500; // after "GO", speed ramps from 60% back to full over this long
-const PLANET_EVERY = 7000; // land on the next planet every 7,000 points
+const PLANET_EVERY = 5000; // land on the next planet every 5,000 points (Pluto at 45,000)
 const PLANET_NAMES = ["MERCURY", "VENUS", "EARTH", "MARS", "JUPITER", "SATURN", "URANUS", "NEPTUNE", "PLUTO"];
 // Power-ups (all by points)
 const BOOST_FROM = 3000; // speed boost that smashes rocks
 const BLASTER_FROM = 10000; // rare auto-fire blaster
 const LIFE_FROM = 15000; // extra life coins...
-const LIFE_UNTIL = 63000; // ...until the last planet
+const LIFE_UNTIL = 45000; // ...until the last planet (Pluto)
 const MAX_LIFE_COINS = 3; // per game, total
 const BOOST_MS = 4500;
 const BLASTER_MS = 7000;
 const COIN_SPACING = 1 / 0.85; // ~15% fewer coins than before
+// Boss fight: alien mothership at 40,000 points
+const BOSS_AT = 40000;
+const BOSS_HP = 220; // ~28s if you never miss; longer for a real player dodging
+const BOSS_BONUS = 5000;
+const HULL_MAX = 3; // hits you can take during the boss fight
+const MISSILE_CD = 2400; // ms between missiles
+// WEMS blast: after the boss, fly through a WEMS logo to blow up every rock nearby
+const WEMS_RADIUS = 190; // on-screen pixels
+const WEMS_POINTS = 30; // per rock destroyed
+const LIFTOFF_MS = 1700; // title-screen liftoff animation before gameplay
 const CHECKPOINT = 1000; // a new quote every 1,000 points
 // Checkpoint quotes in order (3,000 is the "wow" easter egg). Past 5,000 they cycle.
 const QUOTES: Record<number, string> = {
@@ -47,9 +60,20 @@ type Rock = {
   x: number; y: number; r: number; vy: number; vx: number; rot: number; vr: number;
   pts: number[]; craters: Crater[]; specks: Speck[]; tint: number;
 };
-type ItemKind = "coin" | "shield" | "boost" | "blaster" | "life";
+type ItemKind = "coin" | "shield" | "boost" | "blaster" | "life" | "wems";
+type Shock = { x: number; y: number; t: number };
 type Item = { x: number; y: number; vy: number; kind: ItemKind; t: number };
 type Bolt = { x: number; y: number; dead?: boolean };
+type EShot = { x: number; y: number; vx: number; vy: number; r: number; dead?: boolean };
+type PShot = { x: number; y: number; vx: number; vy: number; kind: "bolt" | "missile"; dead?: boolean };
+type Boss = {
+  x: number; y: number; hp: number; t: number;
+  phase: "intro" | "fight" | "dying";
+  introT: number; dyingT: number;
+  aimT: number; fanT: number; beamT: number;
+  beam: { x: number; t: number } | null; // t < 900 = warning line, 900–1600 = firing
+  hitFlash: number;
+};
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
 type Star = { x: number; y: number; tw: number };
 
@@ -57,9 +81,15 @@ export type RocketEvents = {
   onScore: (score: number) => void;
   onStatus: (s: RocketStatus) => void;
   onMessage: (m: string) => void;
-  onSfx?: (kind: "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup") => void;
+  onSfx?: (kind: "coin" | "shield" | "crash" | "zone" | "launch" | "laser" | "pop" | "powerup" | "alarm" | "missile" | "enemy" | "boom") => void;
   /** A planet landing jingle should play (0 = Mercury ... 8 = Pluto) */
   onLanding?: (planet: number) => void;
+  /** Checkpoint music: n = which 1,000-point checkpoint (1, 2, 3...) */
+  onJingle?: (kind: "checkpoint" | "wow" | "top5", n: number) => void;
+  /** Boss music intensity: 1–3 as the mothership takes damage, 0 when the fight ends */
+  onBossMusic?: (level: number) => void;
+  /** Boss fight started (true) or ended (false), so the page can show the fire buttons */
+  onBoss?: (active: boolean) => void;
 };
 
 // Each zone shifts the synthwave palette
@@ -129,7 +159,8 @@ export function pickSize(viewW: number, viewH: number) {
 }
 
 export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: { W: number; H: number }) {
-  const ctx = canvas.getContext("2d")!;
+  // `let` so drawing code can be pointed at another canvas (share-card snapshot)
+  let ctx = canvas.getContext("2d")!;
   const W = size.W;
   const H = size.H;
   const dpr = Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
@@ -198,6 +229,27 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
   let lastBoostAt = -1e9; // score when each power-up last spawned (keeps them spread out)
   let lastBlasterAt = -1e9;
   let lastLifeAt = -1e9;
+  let boss: Boss | null = null;
+  let bossDone = false;
+  let hull = HULL_MAX;
+  let firing = false; // blaster button held
+  let fireCdB = 0;
+  let missileCd = 0;
+  let eShots: EShot[] = [];
+  let pShots: PShot[] = [];
+  let calmUntil = 0; // no checkpoints/planets/boss right after a breather
+  let bossMusicLevel = 0;
+  let wemsUsed = 0;
+  let liftoffT = 0; // ms into the liftoff animation (0 = not lifting off)
+  let introFlash = 0; // ms of white flash left as gameplay starts
+  type Puff = { x: number; y: number; vx: number; vy: number; r: number; life: number; max: number };
+  let puffs: Puff[] = [];
+  let shooting: { x: number; y: number; vx: number; vy: number; life: number } | null = null;
+  let shocks: Shock[] = []; // WEMS blast rings
+  let lastWemsAt = -1e9;
+  let flashT = 0; // white screen flash after a blast
+  const wemsImg = typeof Image !== "undefined" ? new Image() : null;
+  if (wemsImg) wemsImg.src = WEMS_LOGO;
   let items: Item[] = [];
   let parts: Particle[] = [];
   let spawnRock = 0;
@@ -259,6 +311,24 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     lives = 0;
     lifeCoinsSpawned = 0;
     lastBoostAt = lastBlasterAt = lastLifeAt = -1e9;
+    if (boss) ev.onBoss?.(false);
+    if (bossMusicLevel) ev.onBossMusic?.(0);
+    bossMusicLevel = 0;
+    boss = null;
+    bossDone = false;
+    hull = HULL_MAX;
+    firing = false;
+    missileCd = 0;
+    eShots = [];
+    pShots = [];
+    calmUntil = 0;
+    liftoffT = 0;
+    wemsUsed = 0;
+    introFlash = 0;
+    puffs = [];
+    shocks = [];
+    lastWemsAt = -1e9;
+    flashT = 0;
     spawnRock = 90;
     spawnItem = 260;
     lastReportedScore = -1;
@@ -342,12 +412,253 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     invuln = 0;
     countdown = INTERMISSION_MS;
     speedMul = 0.6;
-    speed = Math.min(MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul;
+    speed = Math.min(bossDone ? MAX_SPEED_AFTER_BOSS : MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul;
     callout = null;
     zoneBanner = { text: "", until: 0 };
     last = performance.now();
+    calmUntil = performance.now() + INTERMISSION_MS + 2500;
     setStatus("playing");
     ev.onMessage("Catch your breath. Starting again in 5.");
+  }
+
+  /* ---------------- Boss fight ---------------- */
+
+  const bossW = Math.min(260, W * 0.42);
+  const bossH = bossW * 0.42;
+  const bossBaseY = HORIZON * 0.62;
+
+  function startBoss() {
+    boss = {
+      x: W / 2, y: -bossH, hp: BOSS_HP, t: 0, phase: "intro", introT: 0, dyingT: 0,
+      aimT: 1400, fanT: 2600, beamT: 3500, beam: null, hitFlash: 0,
+    };
+    rocks = [];
+    items = [];
+    bolts = [];
+    boostT = 0;
+    blasterT = 0;
+    hull = HULL_MAX;
+    eShots = [];
+    pShots = [];
+    missileCd = 0;
+    callout = null;
+    ev.onBoss?.(true);
+    bossMusicLevel = 1;
+    ev.onBossMusic?.(1);
+    ev.onMessage(
+      "Warning. Alien mothership approaching. Hold Z or the left button for the blaster. Press X or the right button for missiles."
+    );
+    ev.onSfx?.("alarm");
+  }
+
+  function bossPhase() {
+    if (!boss) return 1;
+    return boss.hp > BOSS_HP * 0.66 ? 1 : boss.hp > BOSS_HP * 0.33 ? 2 : 3;
+  }
+
+  function playerHit(px: number, py: number) {
+    if (prez || invuln > 0) return;
+    if (shield > 0) {
+      shield = 0;
+      invuln = 60;
+      burst(px, py, ["#33e1ff", "#ffffff"], 30, 4);
+      ev.onMessage("Shield absorbed the hit");
+      ev.onSfx?.("shield");
+      return;
+    }
+    hull--;
+    invuln = 70;
+    burst(px, py, ["#ff3dbb", "#FFD166", "#ffffff"], 40, 4.5);
+    ev.onSfx?.("crash");
+    if (hull > 0) {
+      ev.onMessage(`Hull hit. ${hull} left.`);
+      return;
+    }
+    if (lives > 0) {
+      lives--;
+      hull = HULL_MAX;
+      invuln = 100;
+      callout = { big: "EXTRA LIFE USED", small: "HULL REPAIRED", color: "#ff4d6d", until: performance.now() + 2600 };
+      ev.onMessage("Extra life used. Hull repaired.");
+      return;
+    }
+    burst(px, py, ["#ff3dbb", "#FFD166", "#FD652F", "#ffffff"], 80, 5);
+    ev.onBoss?.(false);
+    bossMusicLevel = 0;
+    ev.onBossMusic?.(0);
+    setStatus("over");
+    ev.onScore(score());
+    ev.onMessage(`Destroyed by the mothership. Final score ${score()}.`);
+  }
+
+  function stepBoss(dt: number, f: number) {
+    const b = boss!;
+    b.t += dt;
+    if (b.hitFlash > 0) b.hitFlash -= f;
+    if (invuln > 0) invuln -= f;
+    if (missileCd > 0) missileCd = Math.max(0, missileCd - dt);
+    const rs = rocketScreen();
+    const px = rs.sx;
+    const py = rs.sy;
+    const phase = bossPhase();
+    if (b.phase === "fight" && phase !== bossMusicLevel) {
+      bossMusicLevel = phase;
+      ev.onBossMusic?.(phase);
+    }
+
+    if (b.phase === "intro") {
+      const before = Math.floor(b.introT / 900);
+      b.introT += dt;
+      if (Math.floor(b.introT / 900) !== before && b.introT < 2700) ev.onSfx?.("alarm");
+      b.y = lerp(-bossH, bossBaseY, ease(b.introT / 2600));
+      if (b.introT >= 3000) b.phase = "fight";
+    } else if (b.phase === "fight") {
+      // Movement: sways side to side and leans toward you more in later phases.
+      // Holds still while charging/firing the laser beam.
+      const beamLock = b.beam !== null;
+      if (!beamLock) {
+        const spd = [0, 0.0007, 0.001, 0.0014][phase];
+        const target = W / 2 + Math.sin(b.t * spd) * W * 0.32 + (px - W / 2) * 0.18 * phase;
+        b.x += (Math.max(bossW / 2, Math.min(W - bossW / 2, target)) - b.x) * 0.035 * f;
+      }
+      b.y = bossBaseY + Math.sin(b.t * 0.002) * 8;
+      const gunY = b.y + bossH * 0.35;
+
+      // Aimed plasma shots
+      b.aimT -= dt;
+      if (b.aimT <= 0) {
+        const n = phase;
+        const ang = Math.atan2(py - gunY, px - b.x);
+        const sp = [0, 4.2, 5, 5.6][phase];
+        for (let i = 0; i < n; i++) {
+          const a = ang + (i - (n - 1) / 2) * 0.14;
+          eShots.push({ x: b.x, y: gunY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 7 });
+        }
+        b.aimT = [0, 1500, 1150, 900][phase];
+        ev.onSfx?.("enemy");
+      }
+      // Spread fan (phase 2+)
+      if (phase >= 2) {
+        b.fanT -= dt;
+        if (b.fanT <= 0) {
+          const n = phase === 2 ? 5 : 7;
+          for (let i = 0; i < n; i++) {
+            const a = Math.PI / 2 + (i / (n - 1) - 0.5) * 1.5;
+            eShots.push({ x: b.x, y: gunY, vx: Math.cos(a) * 3.6, vy: Math.sin(a) * 3.6, r: 6 });
+          }
+          b.fanT = phase === 2 ? 3200 : 2600;
+          ev.onSfx?.("enemy");
+        }
+      }
+      // Laser beam (phase 3): red warning line, then the beam
+      if (phase === 3) {
+        if (!b.beam) {
+          b.beamT -= dt;
+          if (b.beamT <= 0) {
+            b.beam = { x: b.x, t: 0 };
+            ev.onSfx?.("alarm");
+          }
+        } else {
+          const was = b.beam.t;
+          b.beam.t += dt;
+          if (was < 900 && b.beam.t >= 900) ev.onSfx?.("boom");
+          if (b.beam.t >= 900 && b.beam.t < 1600 && Math.abs(px - b.beam.x) < 26) playerHit(px, py);
+          if (b.beam.t >= 1600) {
+            b.beam = null;
+            b.beamT = 4200;
+          }
+        }
+      }
+    } else {
+      // Dying: chain explosions, then the big one
+      b.dyingT += dt;
+      if (Math.random() < 0.35 * f) {
+        burst(
+          b.x + (Math.random() - 0.5) * bossW, b.y + (Math.random() - 0.5) * bossH,
+          ["#FD652F", "#FFD166", "#ffffff", "#7dff9b"], 18, 4
+        );
+        if (Math.random() < 0.3) ev.onSfx?.("pop");
+      }
+      if (b.dyingT >= 1900) {
+        burst(b.x, b.y, ["#FD652F", "#FFD166", "#ffffff", "#7dff9b", "#33e1ff"], 160, 8);
+        ev.onSfx?.("boom");
+        bonus += BOSS_BONUS;
+        bossDone = true;
+        boss = null;
+        pShots = [];
+        eShots = [];
+        firing = false;
+        ev.onBoss?.(false);
+        ev.onLanding?.(4); // big brass fanfare
+        nextCheckpoint = Math.max(nextCheckpoint, Math.floor(score() / CHECKPOINT) * CHECKPOINT + CHECKPOINT);
+        ev.onScore(score());
+        beginIntermission();
+        callout = { big: "MOTHERSHIP DESTROYED", small: `+${BOSS_BONUS.toLocaleString()} POINTS`, color: "#7dff9b", until: performance.now() + 4500 };
+        ev.onMessage(`Mothership destroyed! Plus ${BOSS_BONUS} points.`);
+        return;
+      }
+    }
+
+    // Your blaster (hold) — only once the fight starts
+    fireCdB -= f;
+    if (firing && fireCdB <= 0 && b.phase === "fight") {
+      pShots.push({ x: px - 8, y: py - 28, vx: 0, vy: -11, kind: "bolt" }, { x: px + 8, y: py - 28, vx: 0, vy: -11, kind: "bolt" });
+      fireCdB = 7;
+      ev.onSfx?.("laser");
+    }
+
+    // Move your shots and check hits on the mothership
+    for (const sh of pShots) {
+      if (sh.kind === "missile") {
+        sh.vy = Math.max(-10, sh.vy - 0.35 * f);
+        sh.vx += Math.max(-0.4, Math.min(0.4, (b.x - sh.x) * 0.004)) * f; // gentle homing
+        sh.vx *= 0.96;
+        if (Math.random() < 0.6) {
+          parts.push({
+            x: sh.x, y: sh.y + 10, vx: (Math.random() - 0.5) * 0.6, vy: 1 + Math.random(),
+            life: 0, max: 20, color: Math.random() < 0.5 ? "#9aa8c4" : "#FFD166", size: 2.5,
+          });
+        }
+      }
+      sh.x += sh.vx * f;
+      sh.y += sh.vy * f;
+      if (b.phase !== "fight") continue;
+      const dx = (sh.x - b.x) / (bossW / 2);
+      const dy = (sh.y - b.y) / (bossH / 2);
+      if (dx * dx + dy * dy < 1) {
+        sh.dead = true;
+        const dmg = sh.kind === "missile" ? 10 : 1;
+        b.hp = Math.max(0, b.hp - dmg);
+        b.hitFlash = sh.kind === "missile" ? 8 : 3;
+        if (sh.kind === "missile") {
+          burst(sh.x, sh.y, ["#FD652F", "#FFD166", "#ffffff"], 40, 5);
+          ev.onSfx?.("boom");
+        } else {
+          burst(sh.x, sh.y, ["#33e1ff", "#ffffff"], 5, 2);
+        }
+        if (b.hp <= 0) {
+          b.phase = "dying";
+          b.beam = null;
+          bossMusicLevel = 0;
+          ev.onBossMusic?.(0);
+          eShots = [];
+          ev.onMessage("Mothership going down!");
+          ev.onSfx?.("crash");
+        }
+      }
+    }
+    pShots = pShots.filter((sh) => !sh.dead && sh.y > -40 && sh.x > -40 && sh.x < W + 40);
+
+    // Enemy shots
+    for (const e of eShots) {
+      e.x += e.vx * f;
+      e.y += e.vy * f;
+      if (Math.hypot(e.x - px, e.y - py) < e.r + 11) {
+        e.dead = true;
+        playerHit(px, py);
+      }
+    }
+    eShots = eShots.filter((e) => !e.dead && e.y < H + 20 && e.y > -20 && e.x > -20 && e.x < W + 20);
   }
 
   function stepCutscene(dt: number) {
@@ -376,6 +687,8 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     for (const s of stars) s.tw += 0.05 * f;
     if (prezFlash > 0) prezFlash -= f;
 
+    shocks = shocks.filter((sk) => (sk.t += dt) < 650);
+    if (flashT > 0) flashT -= f;
     parts = parts.filter((p) => {
       p.x += p.vx * f; p.y += p.vy * f; p.life += f;
       return p.life < p.max;
@@ -386,8 +699,22 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       return;
     }
 
+    // Title screen + liftoff animation
+    stepTitle(dt, f);
+    if (liftoffT > 0) {
+      liftoffT += dt;
+      if (liftoffT >= LIFTOFF_MS) {
+        liftoffT = 0;
+        introFlash = 450;
+        puffs = [];
+        last = performance.now();
+      }
+      return;
+    }
+    if (introFlash > 0) introFlash -= dt;
+
     const rs = rocketScreen();
-    if (status !== "over") {
+    if (status !== "over" && status !== "ready") {
       for (let i = 0; i < 2; i++) {
         parts.push({
           x: rs.sx + (Math.random() - 0.5) * 6, y: rs.sy + 30,
@@ -424,6 +751,10 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       }
       return;
     }
+    if (boss) {
+      stepBoss(dt, f);
+      return;
+    }
     if (speedMul < 1) speedMul = Math.min(1, speedMul + (0.4 * dt) / EASE_BACK_MS);
     if (boostT > 0) {
       boostT -= dt;
@@ -435,7 +766,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     if (blasterT > 0) blasterT = Math.max(0, blasterT - dt);
 
     distance += speed * DISTANCE_RATE * f;
-    speed = Math.min(MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul * (boostT > 0 ? 1.6 : 1);
+    speed = Math.min(bossDone ? MAX_SPEED_AFTER_BOSS : MAX_SPEED, START_SPEED + distance / SPEED_RAMP) * speedMul * (boostT > 0 ? 1.6 : 1);
     if (invuln > 0) invuln -= f;
 
     const nextZone = ZONES.findLastIndex((z) => distance >= z.at);
@@ -446,15 +777,26 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       ev.onSfx?.("zone");
     }
 
-    // Checkpoints every 1,000 points with a quote (3,000 = the wow easter egg)
-    if (score() >= nextCheckpoint && nextCheckpoint % PLANET_EVERY === 0 && flags < PLANET_NAMES.length) {
-      // Planet landing replaces this checkpoint's quote
-      nextCheckpoint += CHECKPOINT;
+    const calm = performance.now() < calmUntil;
+
+    // Boss fight at 40,000
+    if (!bossDone && !calm && score() >= BOSS_AT) {
+      startBoss();
+      return;
+    }
+
+    // Planet landings every 7,000 (tracked separately so a big bonus never skips one)
+    if (!calm && flags < PLANET_NAMES.length && score() >= (flags + 1) * PLANET_EVERY) {
       flags++;
+      nextCheckpoint = Math.max(nextCheckpoint, flags * PLANET_EVERY + CHECKPOINT);
       startCutscene("planet", flags - 1);
       return;
     }
-    if (score() >= nextCheckpoint) {
+
+    // Checkpoints every 1,000 points with a quote (3,000 = the wow easter egg)
+    if (!calm && score() >= nextCheckpoint && nextCheckpoint % PLANET_EVERY === 0 && nextCheckpoint / PLANET_EVERY <= PLANET_NAMES.length) {
+      nextCheckpoint += CHECKPOINT; // that one belongs to a planet landing
+    } else if (!calm && score() >= nextCheckpoint) {
       const n = nextCheckpoint / CHECKPOINT;
       const until = performance.now() + 3800;
       if (nextCheckpoint === WOW_AT) {
@@ -469,7 +811,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
         callout = { big: quote, small: `${nextCheckpoint.toLocaleString()} POINTS`, color: "#33e1ff", until };
       }
       ev.onMessage(`${callout.big.toLowerCase()}. ${callout.small.toLowerCase()}`);
-      ev.onSfx?.("zone");
+      ev.onJingle?.(nextCheckpoint === WOW_AT ? "wow" : "checkpoint", n);
       nextCheckpoint += CHECKPOINT;
     }
 
@@ -484,7 +826,10 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       // Each item type gets its own slice of the roll: life 5%, blaster 3%, boost 6%, shield 12%
       const roll = Math.random();
       let kind: ItemKind = "coin";
-      if (
+      if (bossDone && sc0 - lastWemsAt > 1200 && roll >= 0.26 && roll < 0.34) {
+        kind = "wems";
+        lastWemsAt = sc0;
+      } else if (
         sc0 >= LIFE_FROM && sc0 < LIFE_UNTIL && lifeCoinsSpawned < MAX_LIFE_COINS &&
         sc0 - lastLifeAt > 4000 && roll < 0.05
       ) {
@@ -606,6 +951,26 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
           callout = { big: "BLASTER", small: "AUTO-FIRE ON", color: "#ff3dbb", until: performance.now() + 2600 };
           ev.onMessage("Blaster. Auto-fire on.");
           ev.onSfx?.("powerup");
+        } else if (it.kind === "wems") {
+          // Blast: every rock within the radius blows up
+          let n = 0;
+          for (const r of rocks) {
+            const pr = project(r.x, r.y);
+            if (pr.sy > HORIZON - 4 && Math.hypot(pr.sx - rs.sx, pr.sy - rs.sy) < WEMS_RADIUS) {
+              burst(pr.sx, pr.sy, ["#8e79ad", "#47305a", "#ffffff", "#c9b8a3"], 20, 4 * pr.s + 1);
+              r.y = WORLD_BOTTOM + 100;
+              n++;
+            }
+          }
+          bonus += n * WEMS_POINTS;
+          wemsUsed++;
+          shocks.push({ x: rs.sx, y: rs.sy, t: 0 });
+          flashT = 10;
+          invuln = Math.max(invuln, 30);
+          burst(rs.sx, rs.sy, ["#8e79ad", "#b39ddb", "#ffffff", "#47305a"], 70, 6);
+          callout = { big: "WEMS BLAST!", small: n ? `${n} ROCKS · +${n * WEMS_POINTS}` : "AREA CLEARED", color: "#b39ddb", until: performance.now() + 2600 };
+          ev.onMessage(`WEMS blast. ${n} rocks destroyed.`);
+          ev.onSfx?.("boom");
         } else if (it.kind === "life") {
           lives = Math.min(MAX_LIFE_COINS, lives + 1);
           burst(pi.sx, pi.sy, ["#ff4d6d", "#ffffff", "#FFD166"], 34, 3.5);
@@ -633,7 +998,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       top5Shown = true;
       callout = { big: "YOU NEAR THE TOP", small: "TOP 5 TERRITORY", color: "#ff9be6", until: performance.now() + 3800 };
       ev.onMessage("You near the top. Top 5 territory.");
-      ev.onSfx?.("zone");
+      ev.onJingle?.("top5", 0);
     }
 
     // Secret ending: passed the current #1
@@ -947,6 +1312,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
   function drawItem(it: Item) {
     if (it.kind === "coin") drawCoin(it);
     else if (it.kind === "shield") drawShieldItem(it);
+    else if (it.kind === "wems") drawWems(it);
     else drawPowerUp(it);
   }
 
@@ -1009,6 +1375,285 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       ctx.moveTo(-hs * 1.9, 0); ctx.lineTo(hs * 1.9, 0); ctx.lineTo(0, hs * 2.1); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
+  }
+
+  function drawBoss() {
+    const b = boss!;
+    const now = performance.now();
+    const phase = bossPhase();
+
+    // Laser beam (behind the ship)
+    if (b.beam) {
+      if (b.beam.t < 900) {
+        ctx.save();
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(now / 60);
+        ctx.strokeStyle = "#ff2d55";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.moveTo(b.beam.x, b.y); ctx.lineTo(b.beam.x, H); ctx.stroke();
+        ctx.restore();
+      } else {
+        const g = ctx.createLinearGradient(b.beam.x - 30, 0, b.beam.x + 30, 0);
+        g.addColorStop(0, "rgba(255,45,85,0)");
+        g.addColorStop(0.3, "rgba(255,45,85,0.85)");
+        g.addColorStop(0.5, "#ffffff");
+        g.addColorStop(0.7, "rgba(255,45,85,0.85)");
+        g.addColorStop(1, "rgba(255,45,85,0)");
+        ctx.save();
+        ctx.shadowColor = "#ff2d55";
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = g;
+        const wob = Math.sin(now / 30) * 3;
+        ctx.fillRect(b.beam.x - 30 + wob, b.y, 60, H - b.y);
+        ctx.restore();
+      }
+    }
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (b.phase === "dying") ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    const rw = bossW / 2;
+    const rh = bossH / 2;
+
+    // Tractor glow underneath
+    const glow = ctx.createRadialGradient(0, rh * 0.6, 4, 0, rh * 0.6, rw * 0.9);
+    glow.addColorStop(0, "rgba(125,255,155,0.45)");
+    glow.addColorStop(1, "rgba(125,255,155,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.ellipse(0, rh * 0.7, rw * 0.9, rh * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Lower hull
+    const lower = ctx.createLinearGradient(0, 0, 0, rh * 0.9);
+    lower.addColorStop(0, "#5a6378");
+    lower.addColorStop(1, "#141821");
+    ctx.fillStyle = lower;
+    ctx.beginPath(); ctx.ellipse(0, rh * 0.25, rw * 0.78, rh * 0.62, 0, 0, Math.PI); ctx.fill();
+
+    // Main disc (brushed metal)
+    const disc = ctx.createLinearGradient(-rw, -rh * 0.4, rw, rh * 0.4);
+    disc.addColorStop(0, "#2b3140");
+    disc.addColorStop(0.3, "#c9d4ea");
+    disc.addColorStop(0.45, "#ffffff");
+    disc.addColorStop(0.6, "#8a94a8");
+    disc.addColorStop(1, "#1c2230");
+    ctx.fillStyle = disc;
+    ctx.beginPath(); ctx.ellipse(0, 0, rw, rh * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Panel seams on the disc
+    ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    for (let i = 1; i < 8; i++) {
+      const a = (i / 8) * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * rw * 0.45, Math.sin(a) * rh * 0.2);
+      ctx.lineTo(Math.cos(a) * rw, Math.sin(a) * rh * 0.42);
+      ctx.stroke();
+    }
+
+    // Running lights around the rim (chase pattern)
+    const N = 12;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI;
+      const on = Math.floor(now / 120 + i) % 3 === 0;
+      ctx.fillStyle = on ? (phase === 3 ? "#ff2d55" : "#7dff9b") : "rgba(255,255,255,0.25)";
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * rw * 0.88, Math.sin(a) * rh * 0.32 + 1, Math.max(2, rw * 0.025), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Glass dome with the pilot
+    const dome = ctx.createRadialGradient(-rw * 0.08, -rh * 0.75, 2, 0, -rh * 0.35, rw * 0.3);
+    dome.addColorStop(0, "rgba(220,255,230,0.9)");
+    dome.addColorStop(0.5, "rgba(80,220,140,0.55)");
+    dome.addColorStop(1, "rgba(10,60,40,0.85)");
+    ctx.fillStyle = dome;
+    ctx.beginPath(); ctx.ellipse(0, -rh * 0.25, rw * 0.28, rh * 0.75, 0, Math.PI, 0); ctx.fill();
+    // Alien
+    ctx.fillStyle = "rgba(20,60,35,0.9)";
+    ctx.beginPath(); ctx.ellipse(0, -rh * 0.55, rw * 0.09, rh * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.ellipse(-rw * 0.04, -rh * 0.6, rw * 0.03, rh * 0.06, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(rw * 0.04, -rh * 0.6, rw * 0.03, rh * 0.06, -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.ellipse(-rw * 0.12, -rh * 0.85, rw * 0.05, rh * 0.1, -0.5, 0, Math.PI * 2); ctx.fill();
+
+    // Gun pod: glows brighter right before it fires
+    const charge = b.phase === "fight" ? 1 - Math.min(1, b.aimT / 600) : 0;
+    ctx.shadowColor = "#ff2d55";
+    ctx.shadowBlur = 10 + charge * 20;
+    ctx.fillStyle = `rgba(255,${Math.round(80 - charge * 60)},${Math.round(100 - charge * 60)},1)`;
+    ctx.beginPath(); ctx.arc(0, rh * 0.7, rw * 0.07 + charge * 3, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Battle damage: scorch marks + smoke as health drops
+    if (phase >= 2) {
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.beginPath(); ctx.ellipse(-rw * 0.55, rh * 0.05, rw * 0.12, rh * 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
+      if (Math.random() < 0.3) {
+        parts.push({ x: b.x - rw * 0.55, y: b.y, vx: (Math.random() - 0.5) * 0.5, vy: -0.6 - Math.random() * 0.6, life: 0, max: 40, color: "rgba(120,120,130,0.8)", size: 4 });
+      }
+    }
+    if (phase >= 3) {
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.beginPath(); ctx.ellipse(rw * 0.5, -rh * 0.05, rw * 0.14, rh * 0.14, -0.3, 0, Math.PI * 2); ctx.fill();
+      if (Math.random() < 0.4) {
+        parts.push({ x: b.x + rw * 0.5, y: b.y, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, life: 0, max: 14, color: "#FFD166", size: 2 });
+      }
+    }
+
+    // White flash when hit
+    if (b.hitFlash > 0) {
+      ctx.globalAlpha = Math.min(0.6, b.hitFlash / 8);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.ellipse(0, 0, rw, rh * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+
+    // Enemy plasma
+    for (const e of eShots) {
+      const g = ctx.createRadialGradient(e.x, e.y, 1, e.x, e.y, e.r * 1.8);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(0.35, phase === 3 ? "#ff3dbb" : "#7dff9b");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Your shots
+    for (const sh of pShots) {
+      if (sh.kind === "bolt") {
+        ctx.save();
+        ctx.shadowColor = "#33e1ff";
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = "#33e1ff";
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(sh.x, sh.y + 14); ctx.stroke();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(sh.x, sh.y + 14); ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.translate(sh.x, sh.y);
+        ctx.rotate(Math.atan2(sh.vy, sh.vx) + Math.PI / 2);
+        const fl = 8 + Math.random() * 6;
+        ctx.fillStyle = "#FFD166";
+        ctx.beginPath(); ctx.moveTo(-3, 8); ctx.lineTo(0, 8 + fl); ctx.lineTo(3, 8); ctx.fill();
+        ctx.fillStyle = "#d9dde6";
+        ctx.fillRect(-3, -6, 6, 14);
+        ctx.fillStyle = "#D33A02";
+        ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(0, -12); ctx.lineTo(3, -6); ctx.fill();
+        ctx.fillRect(-6, 4, 3, 5);
+        ctx.fillRect(3, 4, 3, 5);
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawBossHud() {
+    const b = boss!;
+    if (b.phase === "intro") {
+      const blink = Math.floor(performance.now() / 300) % 2 === 0;
+      ctx.fillStyle = "rgba(255,45,85,0.12)";
+      ctx.fillRect(0, 0, W, H);
+      if (blink) retroText("WARNING", W / 2, H * 0.5, 26, "#ff2d55");
+      retroText("ALIEN MOTHERSHIP APPROACHING", W / 2, H * 0.5 + 26, Math.min(9, Math.floor((W - 20) / 28)), "#ffffff");
+      retroText("HOLD Z / LEFT BUTTON: BLASTER", W / 2, H * 0.5 + 52, 7, "#33e1ff");
+      retroText("X / RIGHT BUTTON: MISSILE", W / 2, H * 0.5 + 66, 7, "#FD652F");
+      return;
+    }
+    // Mothership health bar
+    const bw = Math.min(W * 0.42, 280);
+    const bx = W / 2 - bw / 2;
+    retroText("MOTHERSHIP", W / 2, 22, 7, "#7dff9b");
+    ctx.fillStyle = "rgba(10,0,30,0.7)";
+    ctx.fillRect(bx, 28, bw, 8);
+    const frac = b.hp / BOSS_HP;
+    ctx.fillStyle = frac > 0.66 ? "#7dff9b" : frac > 0.33 ? "#FFD166" : "#ff2d55";
+    ctx.fillRect(bx, 28, bw * frac, 8);
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.strokeRect(bx, 28, bw, 8);
+    // Your hull
+    retroText("HULL", 14, H - 70, 6, "#ffffff", "left");
+    for (let i = 0; i < HULL_MAX; i++) {
+      ctx.fillStyle = i < hull ? "#33e1ff" : "rgba(255,255,255,0.2)";
+      ctx.fillRect(48 + i * 14, H - 78, 10, 10);
+    }
+    // Missile reload, above the right-hand button
+    const ready = missileCd <= 0;
+    retroText(ready ? "MISSILE READY" : "RELOADING", W - 14, H - 96, 6, ready ? "#FD652F" : "#ffffff", "right");
+    ctx.fillStyle = "rgba(10,0,30,0.6)";
+    ctx.fillRect(W - 94, H - 90, 80, 5);
+    ctx.fillStyle = "#FD652F";
+    ctx.fillRect(W - 94, H - 90, 80 * (1 - missileCd / MISSILE_CD), 5);
+  }
+
+  /** WEMS logo pickup on a glowing white badge, so it pops on the dark background */
+  function drawWems(it: Item) {
+    const p = project(it.x, it.y);
+    if (p.sy < HORIZON - 4) return;
+    const r = 22 * p.s;
+    const now = performance.now();
+    const bob = Math.sin(now / 250 + it.x) * 3 * p.s;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (p.sy - HORIZON) / 40);
+    ctx.translate(p.sx, p.sy + bob);
+    // Pulsing purple halo
+    const pulse = 0.6 + 0.4 * Math.sin(now / 160 + it.x);
+    const halo = ctx.createRadialGradient(0, 0, r * 0.8, 0, 0, r * 2.6);
+    halo.addColorStop(0, `rgba(179,157,219,${0.6 * pulse})`);
+    halo.addColorStop(1, "rgba(179,157,219,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, r * 2.6, 0, Math.PI * 2); ctx.fill();
+    // Badge
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#8e79ad";
+    ctx.lineWidth = 3 * p.s;
+    ctx.stroke();
+    ctx.save();
+    ctx.rotate(now / 500);
+    ctx.setLineDash([5 * p.s, 4 * p.s]);
+    ctx.strokeStyle = "#47305a";
+    ctx.lineWidth = 1.5 * p.s;
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.18, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    if (wemsImg && wemsImg.complete && wemsImg.naturalWidth > 0) {
+      const iw = r * 1.6;
+      const ih = iw * (wemsImg.naturalHeight / wemsImg.naturalWidth);
+      ctx.drawImage(wemsImg, -iw / 2, -ih / 2, iw, ih);
+    } else {
+      ctx.fillStyle = "#47305a";
+      ctx.font = `${Math.round(8 * p.s)}px ${FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("WEMS", 0, 0);
+    }
+    ctx.restore();
+  }
+
+  function drawShocks() {
+    for (const sk of shocks) {
+      const k = sk.t / 650;
+      ctx.save();
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = "#b39ddb";
+      ctx.shadowColor = "#b39ddb";
+      ctx.shadowBlur = 20;
+      ctx.lineWidth = 8 * (1 - k) + 2;
+      ctx.beginPath(); ctx.arc(sk.x, sk.y, WEMS_RADIUS * (0.2 + 0.9 * k), 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(sk.x, sk.y, WEMS_RADIUS * (0.1 + 0.7 * k), 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (flashT > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(0.5, flashT / 20)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
   }
 
   function drawBolts() {
@@ -1870,11 +2515,367 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     }
   }
 
+
+  /* ---------------- Title screen: LAMC launch pad at night ---------------- */
+
+  const titleStars = Array.from({ length: Math.round(150 * widthFactor) }, () => ({
+    x: Math.random() * W, y: Math.random() * H * 0.72, z: 0.3 + Math.random() * 0.7, tw: Math.random() * Math.PI * 2,
+  }));
+  const padY = Math.round(H * 0.78);
+  const S = Math.min(1.7, Math.max(1.3, W / 420)); // rocket size on the pad
+  const skyline = (() => {
+    const out: { x: number; w: number; h: number; win: number[] }[] = [];
+    let bx = 0;
+    while (bx < W) {
+      const w = 18 + Math.random() * 30;
+      const edge = Math.abs(bx + w / 2 - W / 2) / (W / 2); // taller toward the sides, clear in the middle
+      const h = edge < 0.22 ? 8 + Math.random() * 10 : 22 + Math.random() * 70 * edge;
+      out.push({ x: bx, w, h, win: Array.from({ length: 12 }, () => Math.random()) });
+      bx += w + 2;
+    }
+    return out;
+  })();
+
+  function stepTitle(dt: number, f: number) {
+    if (status !== "ready" && liftoffT === 0) return;
+    // Steam venting on the pad; big smoke during liftoff
+    const padX = W / 2;
+    const rate = liftoffT > 0 ? (liftoffT < 1300 ? 3.2 : 1) : 0.25;
+    if (Math.random() < rate * f) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      puffs.push({
+        x: padX + side * (10 + Math.random() * 20), y: padY - 4,
+        vx: side * (0.4 + Math.random() * (liftoffT > 0 ? 2.2 : 0.6)), vy: -0.2 - Math.random() * 0.5,
+        r: 6 + Math.random() * 8, life: 0, max: 60 + Math.random() * 60,
+      });
+    }
+    puffs = puffs.filter((p) => {
+      p.x += p.vx * f; p.y += p.vy * f; p.r += 0.35 * f; p.life += f; p.vx *= 0.99;
+      return p.life < p.max;
+    });
+    // Occasional shooting star
+    if (!shooting && Math.random() < 0.006 * f) {
+      shooting = { x: Math.random() * W * 0.7, y: Math.random() * H * 0.3, vx: 7 + Math.random() * 4, vy: 2.5 + Math.random() * 2, life: 0 };
+    }
+    if (shooting) {
+      shooting.x += shooting.vx * f; shooting.y += shooting.vy * f; shooting.life += f;
+      if (shooting.life > 40) shooting = null;
+    }
+    void dt;
+  }
+
+  function drawPlanetIcon(px: number, py: number, r: number, c0: string, c1: string, ring: boolean) {
+    if (ring) {
+      ctx.strokeStyle = "rgba(255,230,180,0.55)";
+      ctx.lineWidth = r * 0.18;
+      ctx.beginPath(); ctx.ellipse(px, py, r * 1.9, r * 0.5, -0.35, Math.PI, Math.PI * 2); ctx.stroke();
+    }
+    const g = ctx.createRadialGradient(px - r * 0.4, py - r * 0.4, r * 0.1, px, py, r);
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+    if (ring) {
+      ctx.strokeStyle = "rgba(255,230,180,0.7)";
+      ctx.beginPath(); ctx.ellipse(px, py, r * 1.9, r * 0.5, -0.35, 0, Math.PI); ctx.stroke();
+    }
+  }
+
+  function drawPalm(px: number, base: number, h: number, lean: number) {
+    ctx.strokeStyle = "#07010f";
+    ctx.lineWidth = Math.max(3, h * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(px, base);
+    ctx.quadraticCurveTo(px + lean * 0.3, base - h * 0.6, px + lean, base - h);
+    ctx.stroke();
+    ctx.fillStyle = "#07010f";
+    const tx = px + lean;
+    const ty = base - h;
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI / 2 + (i - 3) * 0.48;
+      const L = h * (0.42 + (i % 2) * 0.1);
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.quadraticCurveTo(tx + Math.cos(a) * L * 0.6, ty + Math.sin(a) * L * 0.6 - L * 0.2, tx + Math.cos(a) * L, ty + Math.sin(a) * L + L * 0.25);
+      ctx.quadraticCurveTo(tx + Math.cos(a) * L * 0.5, ty + Math.sin(a) * L * 0.4, tx, ty + 2);
+      ctx.fill();
+    }
+  }
+
+  function chromeText(text: string, x0: number, y0: number, size: number) {
+    ctx.font = `${size}px ${FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#2a0040";
+    ctx.fillText(text, x0 + 3, y0 + 3);
+    const g = ctx.createLinearGradient(0, y0 - size, 0, y0);
+    g.addColorStop(0, "#ffffff");
+    g.addColorStop(0.45, "#9ff3ff");
+    g.addColorStop(0.5, "#2b5fbf");
+    g.addColorStop(0.75, "#ff9be6");
+    g.addColorStop(1, "#ffffff");
+    ctx.save();
+    ctx.shadowColor = "#ff3dbb";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = g;
+    ctx.fillText(text, x0, y0);
+    ctx.restore();
+  }
+
+  function drawTitle() {
+    const now = performance.now();
+    const tsec = now / 1000;
+    const lift = liftoffT;
+    const shake = lift > 0 && lift < 1300 ? (Math.random() - 0.5) * (lift < 500 ? lift / 120 : 4) : 0;
+    ctx.save();
+    ctx.translate(shake, shake * 0.6);
+
+    // Sky
+    const sky = ctx.createLinearGradient(0, 0, 0, padY);
+    sky.addColorStop(0, "#03010a");
+    sky.addColorStop(0.55, "#150536");
+    sky.addColorStop(0.85, "#45105e");
+    sky.addColorStop(1, "#a3195b");
+    ctx.fillStyle = sky;
+    ctx.fillRect(-10, -10, W + 20, padY + 10);
+
+    // Nebula clouds
+    const neb = (nx: number, ny: number, r: number, c: string) => {
+      const g = ctx.createRadialGradient(nx, ny, 0, nx, ny, r);
+      g.addColorStop(0, c);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(nx - r, ny - r, r * 2, r * 2);
+    };
+    neb(W * 0.2, H * 0.24, W * 0.38, "rgba(180,77,255,0.20)");
+    neb(W * 0.82, H * 0.14, W * 0.32, "rgba(51,225,255,0.13)");
+    neb(W * 0.6, H * 0.44, W * 0.28, "rgba(255,61,187,0.13)");
+
+    // Stars (slow drift, twinkle)
+    for (const st of titleStars) {
+      const sx = (((st.x - tsec * 6 * st.z) % W) + W) % W;
+      const a = 0.35 + 0.45 * Math.sin(st.tw + tsec * 2 * st.z);
+      ctx.fillStyle = `rgba(255,255,255,${a * st.z})`;
+      const sz = st.z > 0.85 ? 2 : 1.4;
+      ctx.fillRect(sx, st.y, sz, sz);
+    }
+    if (shooting) {
+      const g = ctx.createLinearGradient(shooting.x - shooting.vx * 8, shooting.y - shooting.vy * 8, shooting.x, shooting.y);
+      g.addColorStop(0, "rgba(255,255,255,0)");
+      g.addColorStop(1, "rgba(255,255,255,0.9)");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(shooting.x - shooting.vx * 8, shooting.y - shooting.vy * 8);
+      ctx.lineTo(shooting.x, shooting.y);
+      ctx.stroke();
+    }
+
+    // Planets + moon
+    const m = Math.min(W, H);
+    drawPlanetIcon(W * 0.84, H * 0.3 + Math.sin(tsec * 0.6) * 3, m * 0.05, "#fff2c9", "#a37b2c", true);
+    drawPlanetIcon(W * 0.12, H * 0.42 + Math.sin(tsec * 0.5 + 1) * 3, m * 0.028, "#ffb38a", "#7a2408", false);
+    ctx.fillStyle = "#f2f2f2";
+    ctx.beginPath(); ctx.arc(W * 0.28, H * 0.09, m * 0.022, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#150536";
+    ctx.beginPath(); ctx.arc(W * 0.28 + m * 0.009, H * 0.09 - m * 0.004, m * 0.02, 0, Math.PI * 2); ctx.fill();
+
+    // Searchlights sweeping the sky
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const [lx, sp, ph] of [[W * 0.22, 0.7, 0], [W * 0.78, 0.55, 2]] as const) {
+      const ang = -Math.PI / 2 + Math.sin(tsec * sp + ph) * 0.5;
+      const L = H;
+      const spread = 0.07;
+      const g = ctx.createLinearGradient(lx, padY, lx + Math.cos(ang) * L, padY + Math.sin(ang) * L);
+      g.addColorStop(0, "rgba(180,230,255,0.22)");
+      g.addColorStop(1, "rgba(180,230,255,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(lx, padY);
+      ctx.lineTo(lx + Math.cos(ang - spread) * L, padY + Math.sin(ang - spread) * L);
+      ctx.lineTo(lx + Math.cos(ang + spread) * L, padY + Math.sin(ang + spread) * L);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Horizon glow + mountains
+    const hg = ctx.createRadialGradient(W / 2, padY, 0, W / 2, padY, W * 0.7);
+    hg.addColorStop(0, "rgba(255,61,187,0.45)");
+    hg.addColorStop(1, "rgba(255,61,187,0)");
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, padY - W * 0.7, W, W * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(0, padY);
+    for (const mt of mountains) ctx.lineTo(mt.x, padY - 30 - mt.h * 0.9);
+    ctx.lineTo(W, padY);
+    ctx.closePath();
+    ctx.fillStyle = "#1a0533";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,61,187,0.6)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // City skyline with lit windows
+    for (const b of skyline) {
+      const top = padY - b.h;
+      ctx.fillStyle = "#0b0219";
+      ctx.fillRect(b.x, top, b.w, b.h);
+      ctx.fillStyle = "rgba(255,61,187,0.7)";
+      ctx.fillRect(b.x, top, b.w, 1.5);
+      for (let i = 0; i < b.win.length; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const wy = top + 6 + row * 9;
+        if (wy > padY - 5) break;
+        const on = b.win[i] > 0.45 && (b.win[i] < 0.95 || Math.sin(tsec * 3 + i) > 0);
+        if (!on) continue;
+        ctx.fillStyle = b.win[i] > 0.75 ? "rgba(51,225,255,0.75)" : "rgba(255,209,102,0.8)";
+        ctx.fillRect(b.x + 4 + col * ((b.w - 8) / 3), wy, 3, 4);
+      }
+    }
+    drawPalm(W * 0.06, padY, H * 0.2, 14);
+    drawPalm(W * 0.15, padY, H * 0.15, -8);
+    drawPalm(W * 0.93, padY, H * 0.19, -16);
+
+    // Ground: neon grid
+    const floor = ctx.createLinearGradient(0, padY, 0, H);
+    floor.addColorStop(0, "#1a0533");
+    floor.addColorStop(1, "#05010d");
+    ctx.fillStyle = floor;
+    ctx.fillRect(-10, padY, W + 20, H - padY + 10);
+    ctx.save();
+    ctx.strokeStyle = "#ff3dbb";
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1;
+    for (let i = -12; i <= 12; i++) {
+      ctx.beginPath(); ctx.moveTo(W / 2 + i * 14, padY); ctx.lineTo(W / 2 + i * 90, H); ctx.stroke();
+    }
+    for (let i = 0; i < 6; i++) {
+      const k = (i + ((tsec * 0.3) % 1)) / 6;
+      const y = padY + Math.pow(k, 2) * (H - padY);
+      ctx.globalAlpha = 0.15 + 0.5 * k;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Launch pad
+    ctx.fillStyle = "#2b3140";
+    ctx.fillRect(W / 2 - 46 * S * 0.8, padY - 6, 92 * S * 0.8, 8);
+    SHPE.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(W / 2 - 46 * S * 0.8 + (i * 92 * S * 0.8) / 4, padY - 6, (92 * S * 0.8) / 4, 2);
+    });
+
+    // Rocket (your hangar pick), lifting off when launched
+    const rise = lift > 450 ? Math.pow((lift - 450) / 1000, 2.2) * (padY + 120 * S) : 0;
+    const rocketY = padY - 8 - 28 * S - rise;
+
+    // Launch tower + support arm (arm swings away at ignition)
+    const tx = W / 2 + 34 * S;
+    const towerTop = padY - 82 * S;
+    ctx.strokeStyle = "#5a6378";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(tx, padY); ctx.lineTo(tx, towerTop);
+    ctx.moveTo(tx + 12, padY); ctx.lineTo(tx + 12, towerTop);
+    for (let y = padY; y > towerTop; y -= 12) {
+      ctx.moveTo(tx, y); ctx.lineTo(tx + 12, y - 12);
+      ctx.moveTo(tx + 12, y); ctx.lineTo(tx, y - 12);
+    }
+    ctx.stroke();
+    const armSwing = lift > 0 ? Math.min(1, lift / 500) : 0;
+    ctx.save();
+    ctx.translate(tx, padY - 46 * S);
+    ctx.rotate(-armSwing * 1.1);
+    ctx.fillStyle = "#8a94a8";
+    ctx.fillRect(-20 * S, -2, 20 * S, 4);
+    ctx.restore();
+    ctx.fillStyle = Math.floor(now / 500) % 2 ? "#ff2d55" : "#5a0010";
+    ctx.beginPath(); ctx.arc(tx + 6, towerTop - 3, 3, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.translate(W / 2, rocketY);
+    ctx.scale(S, S);
+    drawRocketBody(0, 0, 0, lift > 0);
+    ctx.restore();
+
+    // Smoke / steam
+    for (const p of puffs) {
+      const a = (1 - p.life / p.max) * (lift > 0 ? 0.7 : 0.35);
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+      g.addColorStop(0, `rgba(235,230,245,${a})`);
+      g.addColorStop(1, "rgba(235,230,245,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Title: just "ROCKETSHPE" with a little rocket orbiting it (fades out at liftoff)
+    const ta = lift > 0 ? Math.max(0, 1 - lift / 400) : 1;
+    if (ta > 0) {
+      ctx.save();
+      ctx.globalAlpha = ta;
+      const size = Math.min(44, Math.floor((W * 0.86) / 10));
+      const ty = H * 0.2 + Math.sin(tsec * 1.6) * 3;
+      ctx.font = `${size}px ${FONT}`;
+      const rocketW = ctx.measureText("ROCKET").width;
+      const shpeW = ctx.measureText("SHPE").width;
+      const total = rocketW + shpeW;
+      const left = W / 2 - total / 2;
+
+      // Orbit around the word: back half drawn behind the text, front half in front
+      const cx = W / 2;
+      const cy = ty - size * 0.45;
+      const rx = total / 2 + size * 0.9;
+      const ry = size * 1.25;
+      const tilt = -0.12;
+      const theta = tsec * 1.3;
+      const orbitPos = (a: number) => {
+        const ex = Math.cos(a) * rx;
+        const ey = Math.sin(a) * ry;
+        return { x: cx + ex * Math.cos(tilt) - ey * Math.sin(tilt), y: cy + ex * Math.sin(tilt) + ey * Math.cos(tilt) };
+      };
+      const drawOrbiter = () => {
+        // Sparkly exhaust trail along the orbit
+        for (let k = 1; k <= 14; k++) {
+          const p = orbitPos(theta - k * 0.07);
+          ctx.fillStyle = k % 2 ? palette.trail[0] : palette.trail[1];
+          ctx.globalAlpha = ta * (1 - k / 15) * 0.8;
+          const sz = 3.5 - k * 0.2;
+          ctx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+        }
+        ctx.globalAlpha = ta;
+        const p = orbitPos(theta);
+        const p2 = orbitPos(theta + 0.01);
+        const heading = Math.atan2(p2.y - p.y, p2.x - p.x) + Math.PI / 2;
+        const depth = 0.75 + 0.25 * Math.sin(theta); // bigger when it passes in front
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(heading);
+        ctx.scale(0.55 * depth, 0.55 * depth);
+        drawRocketBody(0, 0, 0, true);
+        ctx.restore();
+      };
+      const inFront = Math.sin(theta) > 0;
+      if (!inFront) drawOrbiter();
+      chromeText("ROCKET", left + rocketW / 2, ty, size);
+      ["S", "H", "P", "E"].forEach((ch, i) => {
+        retroText(ch, left + rocketW + (shpeW / 4) * (i + 0.5), ty, size, SHPE[i]);
+      });
+      if (inFront) drawOrbiter();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   function draw() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (status === "cutscene" || status === "record") {
       drawCutscene();
+    } else if (status === "ready" || liftoffT > 0) {
+      drawTitle();
     } else {
       drawBackground();
 
@@ -1891,6 +2892,8 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       ctx.globalAlpha = 1;
 
       drawBolts();
+      drawShocks();
+      if (boss) drawBoss();
       if (status !== "over") drawRocket();
 
       // HUD
@@ -1900,6 +2903,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       retroText(ZONES[zoneIdx].name.toUpperCase(), W - 14, 28, 8, "#ff9be6", "right");
       if (prez && Math.random() > 0.08) retroText("PREZ.EXE", 14, H - 14, 7, "#00ffd0", "left");
       drawPowerHud();
+      if (boss && status !== "over") drawBossHud();
 
       // Intermission countdown
       if (status === "playing" && countdown > 0) {
@@ -1955,7 +2959,7 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
         ctx.restore();
       }
 
-      if (status !== "playing") {
+      if (status === "over" || status === "paused") {
         ctx.fillStyle = "rgba(10,0,30,0.7)";
         ctx.fillRect(0, H / 2 - 60, W, 120);
         ctx.fillStyle = "#ff3dbb";
@@ -1969,14 +2973,14 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
         } else if (status === "paused") {
           retroText("PAUSED", W / 2, H / 2 - 4, 22, "#33e1ff");
           retroText("TAP OR SPACE TO RESUME", W / 2, H / 2 + 28, 8, "#ffffff");
-        } else {
-          retroText("ROCKET SHPE", W / 2, H / 2 - 10, 22, "#FFD166");
-          retroText("INSERT COIN", W / 2, H / 2 + 18, 10, "#ff3dbb");
-          retroText("TAP OR SPACE TO LAUNCH", W / 2, H / 2 + 40, 8, "#ffffff");
         }
       }
     }
 
+    if (introFlash > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, introFlash / 450)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
     drawGlitchTears();
 
     // CRT scanlines and a soft vignette
@@ -2004,8 +3008,12 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
     width: W,
     height: H,
     action() {
-      if (status === "ready") { ev.onSfx?.("launch"); setStatus("playing"); }
-      else if (status === "playing") setStatus("paused");
+      if (status === "ready") {
+        ev.onSfx?.("launch");
+        liftoffT = 1;
+        setStatus("playing");
+      }
+      else if (status === "playing" && liftoffT === 0) setStatus("paused");
       else if (status === "paused") { last = performance.now(); setStatus("playing"); }
       else if (status === "over") reset();
       // cutscene / record: ignore taps
@@ -2029,6 +3037,16 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       palette = (ROCKET_COLORS.find((c) => c.id === colorId) ?? ROCKET_COLORS[0]).p;
       rocketStyle = ROCKET_STYLES.some((st) => st.id === styleId) ? styleId : "classic";
     },
+    /** Boss fight: hold to fire the blaster */
+    setFire(v: boolean) { firing = v && !!boss; },
+    /** Boss fight: launch a missile (if reloaded) */
+    fireMissile() {
+      if (!boss || boss.phase !== "fight" || missileCd > 0 || status !== "playing") return;
+      const rs = rocketScreen();
+      pShots.push({ x: rs.sx, y: rs.sy - 30, vx: 0, vy: -2, kind: "missile" });
+      missileCd = MISSILE_CD;
+      ev.onSfx?.("missile");
+    },
     togglePrez() {
       prez = !prez;
       prezFlash = 20;
@@ -2036,6 +3054,29 @@ export function startRocket(canvas: HTMLCanvasElement, ev: RocketEvents, size: {
       return prez;
     },
     getScore: score,
+    /** Badges earned this run: earth (3 planets), boss (beat the mothership), pluto (all 9 planets) */
+    getBadges() {
+      const b: string[] = [];
+      if (flags >= 3) b.push("earth");
+      if (bossDone) b.push("boss");
+      if (flags >= PLANET_NAMES.length) b.push("pluto");
+      return b;
+    },
+    getStats() {
+      return { score: score(), planets: flags, bossDone, wemsUsed, planetName: flags > 0 ? PLANET_NAMES[flags - 1] : null };
+    },
+    /** Draw the current rocket (picked color + style) onto its own canvas, for the share card */
+    snapshotRocket(scale: number) {
+      const c = document.createElement("canvas");
+      c.width = Math.round(70 * scale);
+      c.height = Math.round(120 * scale);
+      const main = ctx;
+      ctx = c.getContext("2d")!;
+      ctx.scale(scale, scale);
+      drawRocketBody(35, 50, 0, true);
+      ctx = main;
+      return c;
+    },
     destroy() { cancelAnimationFrame(raf); },
   };
 }

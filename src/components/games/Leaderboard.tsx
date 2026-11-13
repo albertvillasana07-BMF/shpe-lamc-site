@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { fetchLeaderboard, type GameId, type ScoreRow } from "@/lib/games/scores";
+import { BADGES, fetchLeaderboard, type GameId, type ScoreRow } from "@/lib/games/scores";
 import { lastWeekKey, weekKey } from "@/lib/games/week";
 
 type Tab = { id: string; label: string; week?: string };
@@ -101,6 +101,17 @@ export default function Leaderboard({
                 </span>
                 <span className="sr-only">Rank {i + 1}:</span>
                 {r.player_name}
+                {(r.badges ?? []).filter((b) => BADGES[b]).length > 0 && (
+                  <span className="flex gap-0.5">
+                    {["earth", "boss", "pluto"]
+                      .filter((b) => r.badges?.includes(b))
+                      .map((b) => (
+                        <span key={b} role="img" aria-label={BADGES[b].label} title={BADGES[b].label}>
+                          {BADGES[b].icon}
+                        </span>
+                      ))}
+                  </span>
+                )}
               </span>
               <span className={`font-bold tabular-nums ${text}`}>{formatScore(game, r)}</span>
             </li>

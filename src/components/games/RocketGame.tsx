@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fetchLeaderboard } from "@/lib/games/scores";
 import Leaderboard from "@/components/games/Leaderboard";
 import ScoreSubmit from "@/components/games/ScoreSubmit";
+import { makeShareCard, shareScoreImage } from "@/lib/fun/shareCard";
 
 type Game = ReturnType<typeof startRocket>;
 
@@ -24,6 +25,19 @@ export default function RocketGame() {
   const [round, setRound] = useState(0);
   const [muted, setMuted] = useState(false);
   const [recordPosted, setRecordPosted] = useState(false);
+  const [bossActive, setBossActive] = useState(false);
+  // First-time tutorial (shown once per device, on the first launch)
+  const [tutorial, setTutorial] = useState<number | null>(null);
+  const tutorialSeen = useRef(true);
+  const tutorialRef = useRef<HTMLDivElement>(null);
+  // Share card: made as soon as the run ends, so the share sheet opens instantly on tap
+  const shareBlob = useRef<Blob | null>(null);
+  const [shareMsg, setShareMsg] = useState("");
+  const [runBadges, setRunBadges] = useState<string[]>([]);
+  const mutedRef = useRef(false);
+  const statusRef = useRef<RocketStatus>("ready");
+  const launchRef = useRef<() => void>(() => {});
+  const bossRef = useRef(false);
   const [colorId, setColorId] = useState("classic");
   const [styleId, setStyleId] = useState("classic");
   const audio = useRef<ReturnType<typeof createSynthwave> | null>(null);
@@ -63,6 +77,36 @@ export default function RocketGame() {
       if (saved?.style) setTimeout(() => setStyleId(saved.style), 0);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      tutorialSeen.current = localStorage.getItem("shpe-rocket-tutorial") === "1";
+    } catch {}
+  }, []);
+  useEffect(() => {
+    mutedRef.current = muted;
+  }, [muted]);
+  useEffect(() => {
+    if (tutorial !== null) tutorialRef.current?.focus();
+  }, [tutorial]);
+
+  // Build the share image when a run ends (game over or new #1)
+  useEffect(() => {
+    if (status !== "over" && status !== "record") {
+      shareBlob.current = null;
+      setTimeout(() => setShareMsg(""), 0);
+      return;
+    }
+    const g = game.current;
+    if (!g) return;
+    let cancelled = false;
+    makeShareCard({ ...g.getStats(), isRecord: status === "record" }, g.snapshotRocket(4)).then((b) => {
+      if (!cancelled) shareBlob.current = b;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
 
   // Remember the sound setting
   useEffect(() => {
@@ -148,10 +192,29 @@ export default function RocketGame() {
     game.current = startRocket(
       canvas,
       {
-        onSfx: (kind) => audio.current?.sfx(kind),
+        onSfx: (kind) => {
+          audio.current?.sfx(kind);
+          // Phone buzz on big moments (Android; iPhones don't allow websites to vibrate)
+          const pattern: Record<string, number | number[]> = { crash: [90, 40, 140], boom: 70, pop: 15, powerup: [20, 30, 20], shield: 40, alarm: [60, 60, 60] };
+          if (!mutedRef.current && pattern[kind] && typeof navigator !== "undefined" && "vibrate" in navigator) {
+            try {
+              navigator.vibrate(pattern[kind]);
+            } catch {}
+          }
+        },
         onLanding: (planet) => audio.current?.landing(planet),
+        onJingle: (kind, n) => audio.current?.jingle(kind, n),
+        onBossMusic: (level) => audio.current?.setBoss(level),
+        onBoss: (active) => {
+          bossRef.current = active;
+          setBossActive(active);
+          if (!active) game.current?.setFire(false);
+        },
         onScore: setScore,
         onStatus: (s) => {
+          statusRef.current = s;
+          // Set badges in the same update as the status, so the auto-post includes them
+          if (s === "over" || s === "record") setRunBadges(game.current?.getBadges() ?? []);
           setStatus(s);
           if (s === "ready") setRound((r) => r + 1);
           if (s === "cutscene") setRecordPosted(false);
@@ -175,11 +238,24 @@ export default function RocketGame() {
           tryPrez();
         }
       }
+      if (bossRef.current) {
+        const k = e.key.toLowerCase();
+        if (k === " " || k === "z" || k === "j") {
+          e.preventDefault();
+          g.setFire(down);
+          return;
+        }
+        if (k === "x" || k === "k") {
+          e.preventDefault();
+          if (down && !e.repeat) g.fireMissile();
+          return;
+        }
+      }
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { g.setLeft(down); e.preventDefault(); }
       else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { g.setRight(down); e.preventDefault(); }
       else if ((e.key === " " || e.key === "p" || e.key === "P") && down && document.activeElement === canvas) {
         e.preventDefault();
-        g.action();
+        launchRef.current();
       }
     }
     function onHide() {
@@ -204,6 +280,45 @@ export default function RocketGame() {
       localStorage.setItem("shpe-rocket-skin", JSON.stringify({ color: colorId, style: styleId }));
     } catch {}
   }, [colorId, styleId, size]);
+
+  /** Launch (showing the tutorial first on someone's very first launch), or pause/resume/retry */
+  function launchOrAction() {
+    const g = game.current;
+    if (!g) return;
+    if (statusRef.current === "ready" && !tutorialSeen.current) {
+      setTutorial(0);
+      return;
+    }
+    g.action();
+  }
+
+  useEffect(() => {
+    launchRef.current = launchOrAction;
+  });
+
+  function finishTutorial() {
+    tutorialSeen.current = true;
+    try {
+      localStorage.setItem("shpe-rocket-tutorial", "1");
+    } catch {}
+    setTutorial(null);
+    audio.current?.unlock();
+    game.current?.action();
+    canvasRef.current?.focus();
+  }
+
+  async function shareScore() {
+    const g = game.current;
+    if (!g) return;
+    setShareMsg("Making your card…");
+    const blob = shareBlob.current ?? (await makeShareCard({ ...g.getStats(), isRecord: status === "record" }, g.snapshotRocket(4)));
+    if (!blob) {
+      setShareMsg("Couldn't make the image. Try again.");
+      return;
+    }
+    const r = await shareScoreImage(blob, g.getScore());
+    setShareMsg(r === "downloaded" ? "Saved! Check your downloads and post it." : r === "shared" ? "Shared!" : "");
+  }
 
   function toGameX(clientX: number) {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -233,41 +348,148 @@ export default function RocketGame() {
             Your best {best.toLocaleString()}
           </span>
         </div>
-        <canvas
-          ref={canvasRef}
-          tabIndex={0}
-          aria-label={`Rocket SHPE game. Score ${score}. ${
-            status === "ready"
-              ? "Press Space to launch."
-              : status === "paused"
-                ? "Paused."
-                : status === "over"
-                  ? "Game over."
-                  : inEnding
-                    ? "Landing cutscene."
-                    : ""
-          } Steer with the arrow keys.`}
-          className="mx-auto block touch-none rounded-2xl bg-[#12002e] shadow-lg"
-          // Fills the width, but stays short enough that the whole game fits on screen
-          style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, calc(80vh * ${W / H}))` }}
-          onPointerMove={(e) => {
-            if (e.pointerType !== "mouse" || e.buttons === 1 || status === "playing") game.current?.steerTo(toGameX(e.clientX));
-          }}
-          onPointerLeave={() => game.current?.steerTo(null)}
-          onPointerDown={(e) => {
-            audio.current?.unlock(); // phones only allow sound that starts during a tap
-            canvasRef.current?.focus();
-            if (status !== "playing" && !inEnding) game.current?.action();
-            game.current?.steerTo(toGameX(e.clientX));
-          }}
-        />
+        <div className="relative mx-auto" style={{ width: `min(100%, calc(80vh * ${W / H}))` }}>
+          <canvas
+            ref={canvasRef}
+            tabIndex={0}
+            aria-label={`Rocket SHPE game. Score ${score}. ${
+              status === "ready"
+                ? "Press Space to launch."
+                : status === "paused"
+                  ? "Paused."
+                  : status === "over"
+                    ? "Game over."
+                    : inEnding
+                      ? "Landing cutscene."
+                      : ""
+            } Steer with the arrow keys.${bossActive ? " Boss fight: hold Z for the blaster, press X for a missile." : ""}`}
+            className="block w-full touch-none rounded-2xl bg-[#12002e] shadow-lg"
+            // Fills the width, but stays short enough that the whole game fits on screen
+            style={{ aspectRatio: `${W} / ${H}` }}
+            onPointerMove={(e) => {
+              if (e.pointerType !== "mouse" || e.buttons === 1 || status === "playing") game.current?.steerTo(toGameX(e.clientX));
+            }}
+            onPointerLeave={() => game.current?.steerTo(null)}
+            onPointerDown={(e) => {
+              audio.current?.unlock(); // phones only allow sound that starts during a tap
+              canvasRef.current?.focus();
+              if (status !== "playing" && !inEnding && tutorial === null) launchOrAction();
+              game.current?.steerTo(toGameX(e.clientX));
+            }}
+          />
+
+          {/* First-time tutorial */}
+          {tutorial !== null && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#0a0020]/80 p-4">
+              <div
+                ref={tutorialRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rocket-tut-title"
+                tabIndex={-1}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") finishTutorial();
+                }}
+                className="w-full max-w-sm rounded-2xl border-2 border-[#ff3dbb] bg-[#12002e] p-5 text-white shadow-2xl outline-none"
+              >
+                <p className="text-xs font-bold uppercase tracking-wider text-[#ff9be6]">
+                  How to play · {tutorial + 1} of 3
+                </p>
+                {tutorial === 0 && (
+                  <>
+                    <h3 id="rocket-tut-title" className="mt-2 text-xl font-bold">
+                      <span aria-hidden="true">🕹️ </span>Steer
+                    </h3>
+                    <p className="mt-2 text-sm text-white/90">
+                      Drag your finger, move your mouse, or use the ← → keys to slide left and right. Dodge the rocks!
+                    </p>
+                  </>
+                )}
+                {tutorial === 1 && (
+                  <>
+                    <h3 id="rocket-tut-title" className="mt-2 text-xl font-bold">
+                      <span aria-hidden="true">🪙 </span>Grab stuff
+                    </h3>
+                    <p className="mt-2 text-sm text-white/90">
+                      Gold SHPE coins are +50. The blue S is a shield that blocks one hit. Every 1,000 points is a checkpoint,
+                      and every 5,000 you land on a new planet.
+                    </p>
+                  </>
+                )}
+                {tutorial === 2 && (
+                  <>
+                    <h3 id="rocket-tut-title" className="mt-2 text-xl font-bold">
+                      <span aria-hidden="true">⚡ </span>Power-ups unlock as you score
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1 text-sm text-white/90">
+                      <li><span aria-hidden="true">⚡ </span>3,000: speed boost that smashes rocks</li>
+                      <li><span aria-hidden="true">🎯 </span>10,000: blaster that auto-fires</li>
+                      <li><span aria-hidden="true">❤️ </span>15,000: extra lives</li>
+                      <li><span aria-hidden="true">🛸 </span>40,000: a boss fight. Good luck.</li>
+                    </ul>
+                  </>
+                )}
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <button type="button" onClick={finishTutorial} className="text-sm font-semibold text-white/80 underline underline-offset-2">
+                    Skip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (tutorial < 2 ? setTutorial(tutorial + 1) : finishTutorial())}
+                    className="rounded-full bg-orange px-5 py-2 text-sm font-bold text-white hover:opacity-90"
+                  >
+                    {tutorial < 2 ? "Next" : "🚀 Let's fly"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Boss fight: hold-to-fire blaster on the left, missile on the right.
+              Drag anywhere else on the game to slide back and forth. */}
+          {bossActive && status === "playing" && (
+            <>
+              <button
+                type="button"
+                aria-label="Blaster (hold to fire)"
+                className="absolute bottom-3 left-3 flex h-20 w-20 touch-none select-none flex-col items-center justify-center rounded-full border-2 border-[#33e1ff] bg-[#0a0020]/60 text-[10px] font-bold text-white shadow-lg active:scale-95 active:bg-[#33e1ff]/40"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  audio.current?.unlock();
+                  game.current?.setFire(true);
+                }}
+                onPointerUp={() => game.current?.setFire(false)}
+                onPointerCancel={() => game.current?.setFire(false)}
+                onLostPointerCapture={() => game.current?.setFire(false)}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <span aria-hidden="true" className="text-2xl">🔫</span>
+                BLASTER
+              </button>
+              <button
+                type="button"
+                aria-label="Fire missile"
+                className="absolute bottom-3 right-3 flex h-20 w-20 touch-none select-none flex-col items-center justify-center rounded-full border-2 border-orange bg-[#0a0020]/60 text-[10px] font-bold text-white shadow-lg active:scale-95 active:bg-orange/40"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  audio.current?.unlock();
+                  game.current?.fireMissile();
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <span aria-hidden="true" className="text-2xl">🚀</span>
+                MISSILE
+              </button>
+            </>
+          )}
+        </div>
         <div className="mx-auto mt-3 flex flex-wrap items-center gap-3" style={{ maxWidth: `calc(80vh * ${W / H})` }}>
           {!inEnding && (
             <button
               type="button"
               onClick={() => {
                 audio.current?.unlock();
-                game.current?.action();
+                launchOrAction();
                 canvasRef.current?.focus();
               }}
               className="rounded-full bg-orange px-5 py-2 text-sm font-bold text-white hover:opacity-90"
@@ -288,7 +510,7 @@ export default function RocketGame() {
             Sound
           </button>
           <p className="text-xs text-navy/70">
-            Steer with your mouse, finger, or ← → keys. Grab SHPE coins (+50) and the blue S shield. Power-ups unlock as you score: ⚡ boost at 3,000, 🎯 blaster at 10,000, ❤️ extra lives at 15,000.
+            Steer with your mouse, finger, or ← → keys. Grab SHPE coins (+50) and the blue S shield. Power-ups unlock as you score: ⚡ boost at 3,000, 🎯 blaster at 10,000, ❤️ extra lives at 15,000. Beat the mothership at 40,000 to unlock WEMS blasts.
           </p>
         </div>
         <p className="sr-only" role="status" aria-live="polite">{message}</p>
@@ -361,11 +583,22 @@ export default function RocketGame() {
             <ScoreSubmit
               game="rocket"
               score={score}
+              badges={runBadges}
               onSubmitted={() => {
                 setRecordPosted(true);
                 setRefresh((r) => r + 1);
               }}
             />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={shareScore}
+                className="rounded-full border-2 border-navy px-4 py-1.5 text-sm font-bold text-navy hover:bg-navy hover:text-white"
+              >
+                <span aria-hidden="true">📸 </span>Share my score
+              </button>
+              <p role="status" className="text-xs text-navy/70">{shareMsg}</p>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -386,7 +619,22 @@ export default function RocketGame() {
             className="mx-auto mt-4 rounded-2xl border border-black/5 bg-white p-4 shadow-sm"
             style={{ maxWidth: `calc(80vh * ${W / H})` }}
           >
-            <ScoreSubmit game="rocket" score={score} onSubmitted={() => setRefresh((r) => r + 1)} />
+            <ScoreSubmit
+              game="rocket"
+              score={score}
+              badges={runBadges}
+              onSubmitted={() => setRefresh((r) => r + 1)}
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={shareScore}
+                className="rounded-full border-2 border-navy px-4 py-1.5 text-sm font-bold text-navy hover:bg-navy hover:text-white"
+              >
+                <span aria-hidden="true">📸 </span>Share my score
+              </button>
+              <p role="status" className="text-xs text-navy/70">{shareMsg}</p>
+            </div>
           </div>
         )}
       </div>
